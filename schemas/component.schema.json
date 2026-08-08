@@ -1,0 +1,366 @@
+{
+  "$comment": "GENERATED FILE. Source: packages/core/src/schema.ts. Run `pnpm schema:emit` to regenerate. Do not hand-edit — the spec is the source of truth, and this schema is derived from the Zod contract, not the reverse.",
+  "$ref": "#/definitions/ComponentSpec",
+  "definitions": {
+    "ComponentSpec": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Z][a-zA-Z0-9]*$"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "actions",
+            "forms",
+            "feedback",
+            "layout",
+            "navigation",
+            "data-display"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "stable",
+            "deprecated"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anatomy": {
+          "type": "object",
+          "properties": {
+            "root": {
+              "type": "string",
+              "minLength": 1
+            },
+            "parts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-zA-Z0-9]*$"
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "optional": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "name",
+                  "description"
+                ],
+                "additionalProperties": false
+              },
+              "default": []
+            }
+          },
+          "required": [
+            "root"
+          ],
+          "additionalProperties": false
+        },
+        "props": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-zA-Z0-9]*$"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "enum",
+                  "boolean",
+                  "string",
+                  "number",
+                  "function",
+                  "node"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "required": {
+                "type": "boolean",
+                "default": false
+              },
+              "platforms": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "react",
+                    "react-native"
+                  ]
+                },
+                "default": [
+                  "react",
+                  "react-native"
+                ]
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "default": {
+                "type": [
+                  "string",
+                  "boolean",
+                  "number"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "type",
+              "description"
+            ],
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "default",
+              "hover",
+              "active",
+              "focus",
+              "disabled",
+              "loading"
+            ]
+          },
+          "minItems": 1,
+          "default": [
+            "default"
+          ]
+        },
+        "invalidCombinations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "default": []
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "part": {
+                "type": "string",
+                "minLength": 1
+              },
+              "when": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {}
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^\\{[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z0-9][a-zA-Z0-9]*)+\\}$"
+                }
+              }
+            },
+            "required": [
+              "part",
+              "properties"
+            ],
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "accessibility": {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "minLength": 1
+            },
+            "keyboard": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {}
+            },
+            "aria": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "attribute": {
+                    "type": "string"
+                  },
+                  "condition": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "attribute",
+                  "condition"
+                ],
+                "additionalProperties": false
+              },
+              "default": []
+            },
+            "contrast": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "part": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "foreground": {
+                    "type": "string",
+                    "pattern": "^\\{[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z0-9][a-zA-Z0-9]*)+\\}$"
+                  },
+                  "background": {
+                    "type": "string",
+                    "pattern": "^\\{[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z0-9][a-zA-Z0-9]*)+\\}$"
+                  },
+                  "minRatio": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "default": 4.5
+                  }
+                },
+                "required": [
+                  "part",
+                  "foreground",
+                  "background"
+                ],
+                "additionalProperties": false
+              },
+              "default": []
+            },
+            "requirements": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            }
+          },
+          "required": [
+            "role"
+          ],
+          "additionalProperties": false
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "props": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "boolean",
+                    "number"
+                  ]
+                },
+                "default": {}
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "default",
+                  "hover",
+                  "active",
+                  "focus",
+                  "disabled",
+                  "loading"
+                ],
+                "default": "default"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "overrides": {
+          "type": "object",
+          "properties": {
+            "imports": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "imports": []
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "category",
+        "status",
+        "version",
+        "owner",
+        "description",
+        "anatomy",
+        "accessibility",
+        "examples"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

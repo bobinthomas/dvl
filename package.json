@@ -1,0 +1,24 @@
+{
+  "name": "ds-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "ds": "node --import tsx packages/cli/src/index.ts",
+    "validate": "pnpm ds validate",
+    "build": "pnpm ds build",
+    "schema:emit": "node --import tsx packages/core/src/emit-json-schema.ts",
+    "typecheck": "tsc -b tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "packageManager": "pnpm@9.12.0"
+}

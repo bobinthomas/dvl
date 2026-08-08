@@ -1,0 +1,43 @@
+# Platform settings. Read by generators, docs app, and CI. No generator or
+# doc section reads a hardcoded list — everything here is the single dial.
+platform:
+  version: "0.1.0"
+
+documentation:
+  tone: technical                    # technical | conversational | formal
+  audience: all                      # engineers | designers | product | all
+  default_language: react            # react | react-native
+
+  sections:
+    overview: true
+    anatomy: true
+    props_table: true
+    variants: true
+    states: true
+    usage_guidelines: true
+    accessibility: true
+    token_map: true
+    code_examples: true
+    changelog: true
+
+  code_examples:
+    preferred_order: [react, react-native]
+    include_copy_button: true
+
+governance:
+  require_accessibility_checklist: true
+  min_review_period_hours: 24
+
+generation:
+  code:
+    style_system: css-custom-properties   # fixed per BUILD-PROMPT: no CSS-in-JS, no Tailwind
+    include_unit_tests: true
+    include_storybook: true
+
+  agents:
+    gap_analysis:
+      enabled: true
+    intake_interview:
+      enabled: true
+    docs_qna:
+      enabled: true

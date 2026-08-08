@@ -1,0 +1,206 @@
+{
+  "id": "button",
+  "name": "Button",
+  "category": "actions",
+  "status": "stable",
+  "version": "1.0.0",
+  "owner": "@ds-lead",
+  "description": "Triggers an action or submits a form. The default choice when the user needs to make something happen right now.",
+  "anatomy": {
+    "root": "button element",
+    "parts": [
+      { "name": "label", "description": "The button's text content.", "optional": false },
+      { "name": "icon", "description": "Optional leading icon.", "optional": true },
+      { "name": "loader", "description": "Spinner shown in place of the label while loading.", "optional": true }
+    ]
+  },
+  "props": [
+    {
+      "name": "variant",
+      "type": "enum",
+      "values": ["primary", "secondary", "tertiary"],
+      "default": "primary",
+      "required": false,
+      "platforms": ["react", "react-native"],
+      "description": "Visual emphasis of the button. Primary for the main action on a screen, secondary for alternative actions, tertiary for low-emphasis inline actions."
+    },
+    {
+      "name": "size",
+      "type": "enum",
+      "values": ["small", "medium", "large"],
+      "default": "medium",
+      "required": false,
+      "platforms": ["react", "react-native"],
+      "description": "Controls padding and font scale."
+    },
+    {
+      "name": "loading",
+      "type": "boolean",
+      "default": false,
+      "required": false,
+      "platforms": ["react", "react-native"],
+      "description": "Shows a loader in place of the label and disables interaction."
+    },
+    {
+      "name": "disabled",
+      "type": "boolean",
+      "default": false,
+      "required": false,
+      "platforms": ["react", "react-native"],
+      "description": "Prevents interaction and applies disabled styling."
+    },
+    {
+      "name": "onPress",
+      "type": "function",
+      "required": true,
+      "platforms": ["react", "react-native"],
+      "description": "Callback fired when the button is activated by click, tap, or keyboard."
+    }
+  ],
+  "states": ["default", "hover", "active", "focus", "disabled", "loading"],
+  "invalidCombinations": [
+    { "variant": "tertiary", "size": "large" }
+  ],
+  "tokens": [
+    {
+      "part": "root",
+      "when": {},
+      "properties": {
+        "borderRadius": "{radius.md}"
+      }
+    },
+    {
+      "part": "root",
+      "when": { "size": "small" },
+      "properties": {
+        "paddingBlock": "{spacing.sm}",
+        "paddingInline": "{spacing.sm}"
+      }
+    },
+    {
+      "part": "root",
+      "when": { "size": "medium" },
+      "properties": {
+        "paddingBlock": "{spacing.sm}",
+        "paddingInline": "{spacing.md}"
+      }
+    },
+    {
+      "part": "root",
+      "when": { "size": "large" },
+      "properties": {
+        "paddingBlock": "{spacing.md}",
+        "paddingInline": "{spacing.lg}"
+      }
+    },
+    {
+      "part": "label",
+      "when": { "size": "small" },
+      "properties": { "fontSize": "{fontSize.sm}" }
+    },
+    {
+      "part": "label",
+      "when": { "size": "medium" },
+      "properties": { "fontSize": "{fontSize.md}" }
+    },
+    {
+      "part": "label",
+      "when": { "size": "large" },
+      "properties": { "fontSize": "{fontSize.lg}" }
+    },
+    {
+      "part": "root",
+      "when": { "variant": "primary" },
+      "properties": { "backgroundColor": "{color.action.primary.default.bg}" }
+    },
+    {
+      "part": "label",
+      "when": { "variant": "primary" },
+      "properties": { "color": "{color.action.primary.default.fg}" }
+    },
+    {
+      "part": "root",
+      "when": { "variant": "primary", "state": "hover" },
+      "properties": { "backgroundColor": "{color.action.primary.hover.bg}" }
+    },
+    {
+      "part": "root",
+      "when": { "variant": "primary", "state": "disabled" },
+      "properties": { "backgroundColor": "{color.action.primary.disabled.bg}" }
+    },
+    {
+      "part": "label",
+      "when": { "variant": "primary", "state": "disabled" },
+      "properties": { "color": "{color.action.primary.disabled.fg}" }
+    },
+    {
+      "part": "root",
+      "when": { "variant": "secondary" },
+      "properties": {
+        "backgroundColor": "{color.action.secondary.default.bg}",
+        "borderColor": "{color.action.secondary.default.border}"
+      }
+    },
+    {
+      "part": "label",
+      "when": { "variant": "secondary" },
+      "properties": { "color": "{color.action.secondary.default.fg}" }
+    },
+    {
+      "part": "root",
+      "when": { "variant": "secondary", "state": "hover" },
+      "properties": { "backgroundColor": "{color.action.secondary.hover.bg}" }
+    },
+    {
+      "part": "label",
+      "when": { "variant": "tertiary" },
+      "properties": { "color": "{color.action.tertiary.default.fg}" }
+    },
+    {
+      "part": "label",
+      "when": { "variant": "tertiary", "state": "hover" },
+      "properties": { "color": "{color.action.tertiary.hover.fg}" }
+    }
+  ],
+  "accessibility": {
+    "role": "button",
+    "keyboard": {
+      "Enter": "activates the button",
+      "Space": "activates the button"
+    },
+    "aria": [
+      { "attribute": "aria-disabled", "condition": "true when disabled or loading is true" },
+      { "attribute": "aria-busy", "condition": "true when loading is true" }
+    ],
+    "contrast": [
+      {
+        "part": "root",
+        "foreground": "{color.action.primary.default.fg}",
+        "background": "{color.action.primary.default.bg}",
+        "minRatio": 4.5
+      },
+      {
+        "part": "root",
+        "foreground": "{color.action.secondary.default.fg}",
+        "background": "{color.action.secondary.default.bg}",
+        "minRatio": 4.5
+      }
+    ],
+    "requirements": [
+      "Minimum touch target 44x44dp on touch devices.",
+      "Color contrast at least 4.5:1 for label against background (WCAG AA).",
+      "Focus indicator visible when reached via keyboard."
+    ]
+  },
+  "examples": [
+    { "name": "Primary / Medium", "props": { "variant": "primary", "size": "medium" }, "state": "default" },
+    { "name": "Primary / Hover", "props": { "variant": "primary", "size": "medium" }, "state": "hover" },
+    { "name": "Primary / Disabled", "props": { "variant": "primary", "size": "medium", "disabled": true }, "state": "disabled" },
+    { "name": "Primary / Loading", "props": { "variant": "primary", "size": "medium", "loading": true }, "state": "loading" },
+    { "name": "Secondary / Medium", "props": { "variant": "secondary", "size": "medium" }, "state": "default" },
+    { "name": "Tertiary / Small", "props": { "variant": "tertiary", "size": "small" }, "state": "default" }
+  ],
+  "overrides": {
+    "imports": []
+  }
+}
