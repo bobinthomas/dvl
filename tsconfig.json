@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/core" },
     { "path": "packages/validator" },
+    { "path": "packages/generators/react" },
     { "path": "packages/cli" }
   ]
 }

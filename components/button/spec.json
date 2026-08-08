@@ -160,6 +160,21 @@
       "part": "label",
       "when": { "variant": "tertiary", "state": "hover" },
       "properties": { "color": "{color.action.tertiary.hover.fg}" }
+    },
+    {
+      "part": "root",
+      "when": { "variant": "primary", "state": "active" },
+      "properties": { "backgroundColor": "{color.action.primary.hover.bg}" }
+    },
+    {
+      "part": "root",
+      "when": { "variant": "secondary", "state": "active" },
+      "properties": { "backgroundColor": "{color.action.secondary.hover.bg}" }
+    },
+    {
+      "part": "label",
+      "when": { "variant": "tertiary", "state": "active" },
+      "properties": { "color": "{color.action.tertiary.hover.fg}" }
     }
   ],
   "accessibility": {
@@ -198,7 +213,8 @@
     { "name": "Primary / Disabled", "props": { "variant": "primary", "size": "medium", "disabled": true }, "state": "disabled" },
     { "name": "Primary / Loading", "props": { "variant": "primary", "size": "medium", "loading": true }, "state": "loading" },
     { "name": "Secondary / Medium", "props": { "variant": "secondary", "size": "medium" }, "state": "default" },
-    { "name": "Tertiary / Small", "props": { "variant": "tertiary", "size": "small" }, "state": "default" }
+    { "name": "Tertiary / Small", "props": { "variant": "tertiary", "size": "small" }, "state": "default" },
+    { "name": "Primary / Large", "props": { "variant": "primary", "size": "large" }, "state": "default" }
   ],
   "overrides": {
     "imports": []

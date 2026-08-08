@@ -1,0 +1,96 @@
+/**
+ * GENERATED FILE. Do not edit by hand — your changes will be silently
+ * overwritten. Source: components/button/spec.json (version 1.0.0).
+ * Regenerate with `ds build button`. Behaviour that can't be
+ * expressed here belongs in overrides/button/.
+ */
+@import "./tokens.css";
+
+.ds-button {
+  border-radius: var(--radius-md);
+}
+
+.ds-button[data-size="small"] {
+  padding-block: var(--spacing-sm);
+  padding-inline: var(--spacing-sm);
+}
+
+.ds-button[data-size="medium"] {
+  padding-block: var(--spacing-sm);
+  padding-inline: var(--spacing-md);
+}
+
+.ds-button[data-size="large"] {
+  padding-block: var(--spacing-md);
+  padding-inline: var(--spacing-lg);
+}
+
+.ds-button [data-part="label"][data-size="small"] {
+  font-size: var(--font-size-sm);
+}
+
+.ds-button [data-part="label"][data-size="medium"] {
+  font-size: var(--font-size-md);
+}
+
+.ds-button [data-part="label"][data-size="large"] {
+  font-size: var(--font-size-lg);
+}
+
+.ds-button[data-variant="primary"] {
+  background-color: var(--color-action-primary-default-bg);
+}
+
+.ds-button [data-part="label"][data-variant="primary"] {
+  color: var(--color-action-primary-default-fg);
+}
+
+.ds-button[data-variant="primary"]:hover {
+  background-color: var(--color-action-primary-hover-bg);
+}
+
+.ds-button[data-variant="primary"][data-state="disabled"] {
+  background-color: var(--color-action-primary-disabled-bg);
+}
+
+.ds-button [data-part="label"][data-variant="primary"][data-state="disabled"] {
+  color: var(--color-action-primary-disabled-fg);
+}
+
+.ds-button[data-variant="secondary"] {
+  background-color: var(--color-action-secondary-default-bg);
+  border-color: var(--color-action-secondary-default-border);
+}
+
+.ds-button [data-part="label"][data-variant="secondary"] {
+  color: var(--color-action-secondary-default-fg);
+}
+
+.ds-button[data-variant="secondary"]:hover {
+  background-color: var(--color-action-secondary-hover-bg);
+}
+
+.ds-button [data-part="label"][data-variant="tertiary"] {
+  color: var(--color-action-tertiary-default-fg);
+}
+
+.ds-button [data-part="label"][data-variant="tertiary"]:hover {
+  color: var(--color-action-tertiary-hover-fg);
+}
+
+.ds-button[data-variant="primary"]:active {
+  background-color: var(--color-action-primary-hover-bg);
+}
+
+.ds-button[data-variant="secondary"]:active {
+  background-color: var(--color-action-secondary-hover-bg);
+}
+
+.ds-button [data-part="label"][data-variant="tertiary"]:active {
+  color: var(--color-action-tertiary-hover-fg);
+}
+
+.ds-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
