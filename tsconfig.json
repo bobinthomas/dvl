@@ -4,6 +4,9 @@
     { "path": "packages/core" },
     { "path": "packages/validator" },
     { "path": "packages/generators/react" },
+    { "path": "packages/generators/react-native" },
+    { "path": "packages/generators/stories" },
+    { "path": "packages/generators/tests" },
     { "path": "packages/cli" },
     { "path": "apps/docs" }
   ]

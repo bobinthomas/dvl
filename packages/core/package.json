@@ -11,7 +11,8 @@
     "./tokens": "./src/tokens.ts",
     "./selector": "./src/selector.ts",
     "./invalid-combinations": "./src/invalid-combinations.ts",
-    "./contrast": "./src/contrast.ts"
+    "./contrast": "./src/contrast.ts",
+    "./typegen": "./src/typegen.ts"
   },
   "scripts": {
     "schema:emit": "node --import tsx src/emit-json-schema.ts"

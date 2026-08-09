@@ -6,11 +6,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   ComponentSpecSchema,
   findSpecFiles,
+  loadTokens,
   specPathForId,
   type ComponentSpec,
 } from "@ds-platform/core";
 import { validateSpecFile, formatResult } from "@ds-platform/validator";
 import { compileTokensToCss, generateReact } from "@ds-platform/generator-react";
+import { generateReactNative } from "@ds-platform/generator-react-native";
+import { generateStories } from "@ds-platform/generator-stories";
+import { generateConformanceTests } from "@ds-platform/generator-tests";
+import { loadDsConfig } from "../config.js";
 
 export interface BuildOptions {
   cwd: string;
@@ -117,8 +122,18 @@ export async function runBuild(id: string | undefined, options: BuildOptions): P
     return false;
   }
 
+  const config = loadDsConfig(cwd);
+  const tokens = loadTokens(join(cwd, "tokens", "tokens.json"));
+
   const reactDir = join(cwd, "generated", "react");
+  const nativeDir = join(cwd, "generated", "react-native");
+  const storiesDir = join(cwd, "generated", "stories");
+  const testsDir = join(cwd, "generated", "tests");
   mkdirSync(reactDir, { recursive: true });
+  mkdirSync(nativeDir, { recursive: true });
+  if (config.generation.code.include_storybook) mkdirSync(storiesDir, { recursive: true });
+  if (config.generation.code.include_unit_tests) mkdirSync(testsDir, { recursive: true });
+
   const tokensCss = await compileTokensToCss(join(cwd, "tokens", "tokens.json"), reactDir);
 
   let allOk = true;
@@ -146,8 +161,27 @@ export async function runBuild(id: string | undefined, options: BuildOptions): P
       allOk = false;
       console.error(`FAIL  ${spec.id} (generated, but failed the render/coverage check)`);
       for (const p of problems) console.error(`  ${p}`);
-    } else {
-      console.log(`BUILT ${spec.id} -> generated/react/${componentFile.filePath}, generated/react/${cssFile.filePath}`);
+      continue;
+    }
+    console.log(`BUILT ${spec.id} -> generated/react/${componentFile.filePath}, generated/react/${cssFile.filePath}`);
+
+    for (const file of generateReactNative(spec, tokens)) {
+      writeFileSync(join(nativeDir, file.filePath), file.contents, "utf-8");
+      console.log(`BUILT ${spec.id} -> generated/react-native/${file.filePath}`);
+    }
+
+    if (config.generation.code.include_storybook) {
+      for (const file of generateStories(spec)) {
+        writeFileSync(join(storiesDir, file.filePath), file.contents, "utf-8");
+        console.log(`BUILT ${spec.id} -> generated/stories/${file.filePath}`);
+      }
+    }
+
+    if (config.generation.code.include_unit_tests) {
+      for (const file of generateConformanceTests(spec)) {
+        writeFileSync(join(testsDir, file.filePath), file.contents, "utf-8");
+        console.log(`BUILT ${spec.id} -> generated/tests/${file.filePath}`);
+      }
     }
   }
 

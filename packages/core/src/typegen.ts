@@ -1,4 +1,4 @@
-import type { ComponentSpec, PropDef } from "@ds-platform/core";
+import type { ComponentSpec, PropDef } from "./schema.js";
 
 export function tsTypeForProp(prop: PropDef): string {
   switch (prop.type) {

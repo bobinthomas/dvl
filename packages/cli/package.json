@@ -9,10 +9,14 @@
   "dependencies": {
     "@ds-platform/core": "workspace:*",
     "@ds-platform/generator-react": "workspace:*",
+    "@ds-platform/generator-react-native": "workspace:*",
+    "@ds-platform/generator-stories": "workspace:*",
+    "@ds-platform/generator-tests": "workspace:*",
     "@ds-platform/validator": "workspace:*",
     "commander": "^12.1.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react-dom": "^18.3.0",
+    "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

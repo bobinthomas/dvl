@@ -1,5 +1,5 @@
 import type { ComponentSpec, PropDef } from "@ds-platform/core";
-import { buildVariantUnion, defaultLiteral, tsTypeForProp } from "./typegen.js";
+import { buildVariantUnion, defaultLiteral, tsTypeForProp } from "@ds-platform/core/typegen";
 import { dataAttrName } from "./naming.js";
 
 const ELEMENT_FOR_ROLE: Record<string, string> = {

@@ -5,5 +5,12 @@
     "rootDir": "./src"
   },
   "include": ["src"],
-  "references": [{ "path": "../core" }, { "path": "../validator" }]
+  "references": [
+    { "path": "../core" },
+    { "path": "../validator" },
+    { "path": "../generators/react" },
+    { "path": "../generators/react-native" },
+    { "path": "../generators/stories" },
+    { "path": "../generators/tests" }
+  ]
 }

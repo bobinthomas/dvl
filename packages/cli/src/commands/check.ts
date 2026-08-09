@@ -1,8 +1,13 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { loadTokens } from "@ds-platform/core";
 import { compileTokensToCss, generateReact } from "@ds-platform/generator-react";
+import { generateReactNative } from "@ds-platform/generator-react-native";
+import { generateStories } from "@ds-platform/generator-stories";
+import { generateConformanceTests } from "@ds-platform/generator-tests";
 import { idsToBuild, loadValidSpec } from "./build.js";
+import { loadDsConfig } from "../config.js";
 
 export interface CheckOptions {
   cwd: string;
@@ -42,7 +47,12 @@ export async function runCheck(id: string | undefined, options: CheckOptions): P
     return false;
   }
 
+  const config = loadDsConfig(cwd);
+  const tokens = loadTokens(join(cwd, "tokens", "tokens.json"));
   const reactDir = join(cwd, "generated", "react");
+  const nativeDir = join(cwd, "generated", "react-native");
+  const storiesDir = join(cwd, "generated", "stories");
+  const testsDir = join(cwd, "generated", "tests");
   const scratch = mkdtempSync(join(tmpdir(), "ds-check-"));
   const mismatches: Mismatch[] = [];
   let allSpecsValid = true;
@@ -60,6 +70,19 @@ export async function runCheck(id: string | undefined, options: CheckOptions): P
       for (const file of generateReact(spec)) {
         compareFile(join(reactDir, file.filePath), file.contents, mismatches);
       }
+      for (const file of generateReactNative(spec, tokens)) {
+        compareFile(join(nativeDir, file.filePath), file.contents, mismatches);
+      }
+      if (config.generation.code.include_storybook) {
+        for (const file of generateStories(spec)) {
+          compareFile(join(storiesDir, file.filePath), file.contents, mismatches);
+        }
+      }
+      if (config.generation.code.include_unit_tests) {
+        for (const file of generateConformanceTests(spec)) {
+          compareFile(join(testsDir, file.filePath), file.contents, mismatches);
+        }
+      }
     }
   } finally {
     rmSync(scratch, { recursive: true, force: true });
@@ -72,7 +95,7 @@ export async function runCheck(id: string | undefined, options: CheckOptions): P
 
   const ok = allSpecsValid && mismatches.length === 0;
   if (ok) {
-    console.log(`IN SYNC  generated/react matches what \`ds build\` produces for [${ids.join(", ")}]`);
+    console.log(`IN SYNC  generated/ matches what \`ds build\` produces for [${ids.join(", ")}]`);
   }
   return ok;
 }
