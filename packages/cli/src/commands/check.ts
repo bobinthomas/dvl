@@ -6,6 +6,7 @@ import { compileTokensToCss, generateReact } from "@ds-platform/generator-react"
 import { generateReactNative } from "@ds-platform/generator-react-native";
 import { generateStories } from "@ds-platform/generator-stories";
 import { generateConformanceTests } from "@ds-platform/generator-tests";
+import { generateFigmaPlugin } from "@ds-platform/generator-figma";
 import { idsToBuild, loadValidSpec } from "./build.js";
 import { loadDsConfig } from "../config.js";
 
@@ -53,6 +54,7 @@ export async function runCheck(id: string | undefined, options: CheckOptions): P
   const nativeDir = join(cwd, "generated", "react-native");
   const storiesDir = join(cwd, "generated", "stories");
   const testsDir = join(cwd, "generated", "tests");
+  const figmaDir = join(cwd, "generated", "figma");
   const scratch = mkdtempSync(join(tmpdir(), "ds-check-"));
   const mismatches: Mismatch[] = [];
   let allSpecsValid = true;
@@ -72,6 +74,9 @@ export async function runCheck(id: string | undefined, options: CheckOptions): P
       }
       for (const file of generateReactNative(spec, tokens)) {
         compareFile(join(nativeDir, file.filePath), file.contents, mismatches);
+      }
+      for (const file of generateFigmaPlugin(spec, tokens)) {
+        compareFile(join(figmaDir, file.filePath), file.contents, mismatches);
       }
       if (config.generation.code.include_storybook) {
         for (const file of generateStories(spec)) {

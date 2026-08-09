@@ -15,6 +15,7 @@ import { compileTokensToCss, generateReact } from "@ds-platform/generator-react"
 import { generateReactNative } from "@ds-platform/generator-react-native";
 import { generateStories } from "@ds-platform/generator-stories";
 import { generateConformanceTests } from "@ds-platform/generator-tests";
+import { generateFigmaPlugin } from "@ds-platform/generator-figma";
 import { loadDsConfig } from "../config.js";
 
 export interface BuildOptions {
@@ -129,8 +130,10 @@ export async function runBuild(id: string | undefined, options: BuildOptions): P
   const nativeDir = join(cwd, "generated", "react-native");
   const storiesDir = join(cwd, "generated", "stories");
   const testsDir = join(cwd, "generated", "tests");
+  const figmaDir = join(cwd, "generated", "figma");
   mkdirSync(reactDir, { recursive: true });
   mkdirSync(nativeDir, { recursive: true });
+  mkdirSync(figmaDir, { recursive: true });
   if (config.generation.code.include_storybook) mkdirSync(storiesDir, { recursive: true });
   if (config.generation.code.include_unit_tests) mkdirSync(testsDir, { recursive: true });
 
@@ -168,6 +171,13 @@ export async function runBuild(id: string | undefined, options: BuildOptions): P
     for (const file of generateReactNative(spec, tokens)) {
       writeFileSync(join(nativeDir, file.filePath), file.contents, "utf-8");
       console.log(`BUILT ${spec.id} -> generated/react-native/${file.filePath}`);
+    }
+
+    for (const file of generateFigmaPlugin(spec, tokens)) {
+      const outPath = join(figmaDir, file.filePath);
+      mkdirSync(dirname(outPath), { recursive: true });
+      writeFileSync(outPath, file.contents, "utf-8");
+      console.log(`BUILT ${spec.id} -> generated/figma/${file.filePath}`);
     }
 
     if (config.generation.code.include_storybook) {

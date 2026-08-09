@@ -9,6 +9,7 @@
   "dependencies": {
     "@ds-platform/agents": "workspace:*",
     "@ds-platform/core": "workspace:*",
+    "@ds-platform/generator-figma": "workspace:*",
     "@ds-platform/generator-react": "workspace:*",
     "@ds-platform/generator-react-native": "workspace:*",
     "@ds-platform/generator-stories": "workspace:*",
