@@ -2,12 +2,14 @@
   "files": [],
   "references": [
     { "path": "packages/core" },
+    { "path": "packages/agents" },
     { "path": "packages/validator" },
     { "path": "packages/generators/react" },
     { "path": "packages/generators/react-native" },
     { "path": "packages/generators/stories" },
     { "path": "packages/generators/tests" },
     { "path": "packages/cli" },
-    { "path": "apps/docs" }
+    { "path": "apps/docs" },
+    { "path": "apps/docs/worker" }
   ]
 }

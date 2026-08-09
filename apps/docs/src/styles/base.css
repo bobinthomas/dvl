@@ -134,6 +134,67 @@ a {
   font-weight: 600;
 }
 
+.ask-widget {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.ask-widget__label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: var(--space-2);
+}
+
+.ask-widget__form {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ask-widget__input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  padding: var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.ask-widget__submit {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  cursor: pointer;
+}
+
+.ask-widget__submit:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ask-widget__answer {
+  margin-top: var(--space-3);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.ask-widget__answer--refused {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
 .main {
   padding: var(--space-8) var(--space-7);
   max-width: 860px;

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { registry } from "./registry.js";
 import { ComponentDoc } from "./components/ComponentDoc.js";
+import { AskWidget } from "./components/AskWidget.js";
 
 export function App() {
   const [selectedId, setSelectedId] = React.useState(registry[0]?.spec.id);
@@ -27,6 +28,7 @@ export function App() {
             </li>
           ))}
         </ul>
+        <AskWidget />
       </aside>
       <main className="main">
         {entry ? (
