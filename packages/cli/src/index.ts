@@ -4,6 +4,7 @@ import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runAnalyze } from "./commands/analyze.js";
 import { runNew } from "./commands/new.js";
+import { runChangelog } from "./commands/changelog.js";
 
 const program = new Command();
 program.name("ds").description("Spec-driven design system platform CLI");
@@ -46,6 +47,15 @@ program
   .option("--prd <path>", "PRD markdown file to use as context")
   .action(async (name: string, cmdOptions: { prd?: string }) => {
     const ok = await runNew(name, { cwd: process.cwd(), prdPath: cmdOptions.prd });
+    process.exitCode = ok ? 0 : 1;
+  });
+
+program
+  .command("changelog <component>")
+  .description("Governance gate: derive the semver bump from the spec diff and require it to match, then write the changelog")
+  .option("--base <ref>", "git ref to diff the working-tree spec against", "HEAD")
+  .action((component: string, cmdOptions: { base: string }) => {
+    const ok = runChangelog(component, { cwd: process.cwd(), base: cmdOptions.base });
     process.exitCode = ok ? 0 : 1;
   });
 

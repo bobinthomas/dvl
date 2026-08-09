@@ -12,6 +12,7 @@
     { "path": "../generators/react" },
     { "path": "../generators/react-native" },
     { "path": "../generators/stories" },
-    { "path": "../generators/tests" }
+    { "path": "../generators/tests" },
+    { "path": "../governance" }
   ]
 }

@@ -1,0 +1,132 @@
+name: Design System CI
+
+# The whole thesis in executable form: every PR touching the platform runs
+# the same validate -> build -> sync-check -> test pipeline a contributor
+# runs locally, plus the governance gate that requires a spec's declared
+# version to match what its diff against the PR base actually implies.
+# Nothing here is advisory — any red step fails the job.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ds-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history, not just the merge commit — governance needs to
+          # `git show origin/<base>:components/<id>/spec.json` for every
+          # changed spec to diff against.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        id: typecheck
+        run: pnpm typecheck
+
+      - name: Validate specs
+        id: validate
+        run: pnpm ds validate
+
+      - name: Build generated output
+        id: build
+        run: pnpm ds build
+
+      - name: Sync gate
+        id: check
+        run: pnpm ds check
+
+      - name: Conformance tests
+        id: test
+        run: pnpm test
+
+      - name: Governance — version bump must match the spec diff
+        id: governance
+        run: |
+          set -e
+          echo "changed_components<<EOF" >> "$GITHUB_OUTPUT"
+          base="origin/${{ github.event.pull_request.base.ref }}"
+          changed=$(git diff --name-only "$base"...HEAD -- 'components/*/spec.json' | sed -E 's#components/([^/]+)/spec.json#\1#' | sort -u)
+          status=0
+          summary=""
+          for id in $changed; do
+            if pnpm ds changelog "$id" --base "$base" > "/tmp/changelog-$id.log" 2>&1; then
+              summary="$summary\n- \`$id\`: OK ($(grep -oE '(WROTE|no governance-relevant changes|no prior version)[^\"]*' "/tmp/changelog-$id.log" | head -1))"
+            else
+              summary="$summary\n- \`$id\`: **FAILED** — $(tail -n 5 "/tmp/changelog-$id.log")"
+              status=1
+            fi
+          done
+          if [ -z "$changed" ]; then
+            summary="No component specs changed in this PR."
+          fi
+          echo -e "$summary" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          exit $status
+
+      - name: Post PR comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = "<!-- ds-platform-ci-comment -->";
+            const outcome = (id) => "${{ steps[id].outcome }}" === "success" ? "✅" : "❌";
+            const body = [
+              marker,
+              "## Design System CI",
+              "",
+              `${outcome("typecheck")} Typecheck`,
+              `${outcome("validate")} \`ds validate\``,
+              `${outcome("build")} \`ds build\``,
+              `${outcome("check")} \`ds check\` (sync gate)`,
+              `${outcome("test")} \`pnpm test\` (conformance tests)`,
+              `${outcome("governance")} Governance (version bump matches spec diff)`,
+              "",
+              "### Governance detail",
+              "${{ steps.governance.outputs.changed_components }}",
+            ].join("\n");
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

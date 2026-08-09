@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/core" },
     { "path": "packages/agents" },
+    { "path": "packages/governance" },
     { "path": "packages/validator" },
     { "path": "packages/generators/react" },
     { "path": "packages/generators/react-native" },

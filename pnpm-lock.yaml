@@ -128,6 +128,9 @@ importers:
       '@ds-platform/generator-tests':
         specifier: workspace:*
         version: link:../generators/tests
+      '@ds-platform/governance':
+        specifier: workspace:*
+        version: link:../governance
       '@ds-platform/validator':
         specifier: workspace:*
         version: link:../validator
@@ -241,6 +244,19 @@ importers:
       '@ds-platform/core':
         specifier: workspace:*
         version: link:../../core
+    devDependencies:
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.11
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/governance:
+    dependencies:
+      '@ds-platform/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       tsx:
         specifier: ^4.19.0
