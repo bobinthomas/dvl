@@ -7,6 +7,7 @@ import { ClearGeneratedButton } from "./components/ClearGeneratedButton.js";
 import { SettingsPage } from "./components/SettingsPage.js";
 import { getQueryParam, setQueryParam } from "./queryState.js";
 import { useSimulation } from "./simulationContext.js";
+import { useDevApi } from "./devApiContext.js";
 
 type View = "wizard" | "components" | "settings";
 
@@ -16,6 +17,7 @@ function isView(value: string | null): value is View {
 
 export function App() {
   const { simulate, setSimulate } = useSimulation();
+  const devApi = useDevApi();
   const { entries: registry, loading: registryLoading, error: registryError } = useRegistry();
   const [view, setViewState] = React.useState<View>(() => {
     const fromUrl = getQueryParam("view");
@@ -75,28 +77,44 @@ export function App() {
             <AskWidget />
           </>
         )}
-        <div className="sidebar-panel">
-          <button
-            type="button"
-            className="simulate-toggle"
-            aria-pressed={simulate}
-            onClick={() => setSimulate(!simulate)}
-          >
-            <span className="simulate-toggle__track">
-              <span className="simulate-toggle__thumb" />
-            </span>
-            Simulation mode
-            <small>no API keys needed</small>
-          </button>
-          <ClearGeneratedButton />
-        </div>
+        {devApi === "available" && (
+          <div className="sidebar-panel">
+            <button
+              type="button"
+              className="simulate-toggle"
+              aria-pressed={simulate}
+              onClick={() => setSimulate(!simulate)}
+            >
+              <span className="simulate-toggle__track">
+                <span className="simulate-toggle__thumb" />
+              </span>
+              Simulation mode
+              <small>no API keys needed</small>
+            </button>
+            <ClearGeneratedButton />
+          </div>
+        )}
         <button type="button" className="settings-nav-button" aria-current={view === "settings"} onClick={() => setView("settings")}>
           Settings
         </button>
       </aside>
       <main className="main">
         {view === "wizard" ? (
-          <Wizard onViewComponent={navigateToComponent} />
+          devApi === "unavailable" ? (
+            <div>
+              <div className="component-header">
+                <span className="kicker">Wizard</span>
+                <h1 className="display">Local dev only</h1>
+                <p className="lede">
+                  Scanning PRDs, filing requests, and generating components read and write files in
+                  this repo, so the Wizard only works while running <code>pnpm dev</code> locally —
+                  not on this deployed site.
+                </p>
+              </div>
+            </div>
+          ) : devApi === "checking" ? null : (
+            <Wizard onViewComponent={navigateToComponent} />
+          )
         ) : view === "settings" ? (
           <SettingsPage />
         ) : registryLoading ? (

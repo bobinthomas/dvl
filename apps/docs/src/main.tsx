@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
 import { SimulationProvider } from "./simulationContext.js";
 import { ProviderSettingsProvider } from "./providerContext.js";
+import { DevApiProvider } from "./devApiContext.js";
 import "./styles/base.css";
 
 const root = document.getElementById("root");
@@ -12,7 +13,9 @@ createRoot(root).render(
   <React.StrictMode>
     <ProviderSettingsProvider>
       <SimulationProvider>
-        <App />
+        <DevApiProvider>
+          <App />
+        </DevApiProvider>
       </SimulationProvider>
     </ProviderSettingsProvider>
   </React.StrictMode>
