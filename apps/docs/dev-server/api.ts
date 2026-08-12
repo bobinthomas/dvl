@@ -668,24 +668,30 @@ function handleRequestsList(ctx: DevApiContext, res: ServerResponse): void {
 }
 
 /**
- * Every component spec (+ CHANGELOG.md if present), read straight off disk
- * — same rationale as handleRequestsList, and the same fix for the same
- * class of staleness registry.ts used to hit via `import.meta.glob` for
- * `components/*​/spec.json`. `repoRoot` is included so the client can build
- * an `/@fs/<repoRoot>/generated/react/<Name>.tsx` URL and dynamically
- * `import()` the component module directly — a real per-URL request Vite
- * transforms fresh on demand, never a pre-scanned glob file list that can
- * go stale. If that dynamic import 404s (never built, or build failed),
- * the client just omits that entry, matching registry.ts's old behavior.
+ * Every component spec (+ CHANGELOG.md and generated React source, if
+ * present), read straight off disk — same rationale as handleRequestsList,
+ * and the same fix for the same class of staleness registry.ts used to hit
+ * via `import.meta.glob` for `components/*​/spec.json`. `reactTsx`/`reactCss`
+ * ship as source text rather than a `/@fs/...` URL for the client to
+ * `import()`: the deployed Worker backing this same route has no
+ * filesystem for such a URL to resolve against (see worker/dev-api.ts), so
+ * registry.ts compiles the source with Sucrase in the browser instead —
+ * one rendering path for both backends. If a component was never built (or
+ * the last build failed), `reactTsx` is just absent and the client omits
+ * that entry, matching the old behavior.
  */
 function handleComponentsList(ctx: DevApiContext, res: ServerResponse): void {
   const components = findSpecFiles(ctx.componentsDir).map((specPath) => {
     const spec = ComponentSpecSchema.parse(JSON.parse(readFileSync(specPath, "utf-8")));
     const changelogPath = join(dirname(specPath), "CHANGELOG.md");
     const changelog = existsSync(changelogPath) ? readFileSync(changelogPath, "utf-8") : undefined;
-    return { spec, changelog };
+    const tsxPath = join(ctx.repoRoot, "generated", "react", `${spec.name}.tsx`);
+    const cssPath = join(ctx.repoRoot, "generated", "react", `${spec.id}.css`);
+    const reactTsx = existsSync(tsxPath) ? readFileSync(tsxPath, "utf-8") : undefined;
+    const reactCss = existsSync(cssPath) ? readFileSync(cssPath, "utf-8") : undefined;
+    return { spec, changelog, reactTsx, reactCss };
   });
-  sendJson(res, 200, { ok: true, components, repoRoot: ctx.repoRoot });
+  sendJson(res, 200, { ok: true, components });
 }
 
 /**

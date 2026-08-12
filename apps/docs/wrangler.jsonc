@@ -10,7 +10,14 @@
   },
   "observability": {
     "enabled": true
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ds-platform-docs",
+      "database_id": "2781bed6-14c4-4109-948a-9adae9a0ee1b"
+    }
+  ]
   // Gateway credentials are secrets, never vars — never committed here.
   // Set with, one at a time:
   //   wrangler secret put CF_AI_GATEWAY_ACCOUNT_ID

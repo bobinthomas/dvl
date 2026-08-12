@@ -1,10 +1,11 @@
 import * as React from "react";
 import type { ComponentType } from "react";
 import { ComponentSpecSchema, type ComponentSpec } from "@ds-platform/core/schema";
+import { compileComponent } from "./compileComponent.js";
 
 export interface ComponentEntry {
   spec: ComponentSpec;
-  /** The real generated component, imported straight from generated/react — never a mock. */
+  /** The real generated component, compiled from generator-react's actual output — never a mock. */
   Component: ComponentType<Record<string, unknown>>;
   /** Raw CHANGELOG.md text for this component, if `ds` has generated one yet (Phase 6). */
   changelog?: string;
@@ -12,8 +13,7 @@ export interface ComponentEntry {
 
 interface ListResponse {
   ok: boolean;
-  components?: { spec: unknown; changelog?: string }[];
-  repoRoot?: string;
+  components?: { spec: unknown; changelog?: string; reactTsx?: string; reactCss?: string }[];
   errors?: string[];
 }
 
@@ -38,12 +38,12 @@ export interface RegistryState {
  * The fix here has two parts, mirroring requestRegistry.ts for the list
  * itself, plus one more step since a component (unlike a request) is real
  * code, not JSON: the spec list comes from the same always-fresh
- * `findSpecFiles`-backed route; then each component module is loaded with
- * a genuinely dynamic `import()` of its exact `/@fs/<repoRoot>/generated/
- * react/<Name>.tsx` URL. That's a real per-URL HTTP request Vite transforms
- * on demand from whatever's currently on disk — confirmed directly (curl'd
- * a brand-new .tsx file Vite's glob had never seen and it served
- * immediately) — never a pre-scanned glob file list that can go stale.
+ * `findSpecFiles`-backed route, which also ships each component's actual
+ * generated .tsx source; `compileComponent` (Sucrase, no bundler) turns
+ * that into a live component right here in the browser. That works
+ * identically whether the route is dev-server/api.ts (`pnpm dev`, reading
+ * generated/react/*.tsx off disk) or worker/dev-api.ts (the deployed
+ * Worker, reading the same source out of D1) — one rendering path for both.
  */
 export function useRegistry(): RegistryState {
   const [entries, setEntries] = React.useState<ComponentEntry[]>([]);
@@ -56,27 +56,23 @@ export function useRegistry(): RegistryState {
     async function load() {
       const res = await fetch("/api/dev/components/list", { method: "POST" });
       const data = (await res.json().catch(() => null)) as ListResponse | null;
-      if (!data?.ok || !data.components || !data.repoRoot) {
+      if (!data?.ok || !data.components) {
         throw new Error(data?.errors?.join("; ") ?? "failed to load components");
       }
 
-      const fsRoot = data.repoRoot.replace(/\\/g, "/");
-      const loaded = await Promise.all(
-        data.components.map(async ({ spec: rawSpec, changelog }): Promise<ComponentEntry | undefined> => {
-          const spec = ComponentSpecSchema.parse(rawSpec);
-          const url = `/@fs/${fsRoot}/generated/react/${spec.name}.tsx`;
-          try {
-            const mod: Record<string, unknown> = await import(/* @vite-ignore */ url);
-            const Component = mod[spec.name] as ComponentType<Record<string, unknown>> | undefined;
-            // Not built yet, or the last build failed — same "leave it out
-            // rather than show it broken" posture the old glob version had.
-            if (!Component) return undefined;
-            return { spec, Component, changelog };
-          } catch {
-            return undefined;
-          }
-        })
-      );
+      const loaded = data.components.map(({ spec: rawSpec, changelog, reactTsx }): ComponentEntry | undefined => {
+        const spec = ComponentSpecSchema.parse(rawSpec);
+        if (!reactTsx) return undefined;
+        try {
+          const Component = compileComponent(reactTsx, spec.name);
+          if (!Component) return undefined;
+          return { spec, Component, changelog };
+        } catch {
+          // Not built yet, or the last build failed — same "leave it out
+          // rather than show it broken" posture the old glob version had.
+          return undefined;
+        }
+      });
 
       return loaded
         .filter((e): e is ComponentEntry => e !== undefined)

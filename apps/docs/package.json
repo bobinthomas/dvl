@@ -15,9 +15,11 @@
     "@ds-platform/agents": "workspace:*",
     "@ds-platform/core": "workspace:*",
     "@ds-platform/figma-client": "workspace:*",
+    "@ds-platform/generator-react": "workspace:*",
     "@ds-platform/validator": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "sucrase": "^3.35.0",
     "yaml": "^2.5.0"
   },
   "devDependencies": {

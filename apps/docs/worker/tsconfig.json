@@ -8,5 +8,10 @@
     "resolveJsonModule": true
   },
   "include": ["."],
-  "references": [{ "path": "../../../packages/core" }, { "path": "../../../packages/agents" }]
+  "references": [
+    { "path": "../../../packages/core" },
+    { "path": "../../../packages/agents" },
+    { "path": "../../../packages/figma-client" },
+    { "path": "../../../packages/generators/react" }
+  ]
 }

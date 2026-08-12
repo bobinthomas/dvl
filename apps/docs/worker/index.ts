@@ -7,8 +7,9 @@
 import { ComponentSpecSchema, type ComponentSpec } from "@ds-platform/core";
 import { createGatewayClient, loadGatewayEnv, answerDocsQuestion, ModelOutputError } from "@ds-platform/agents";
 import { rawSpecs } from "./specs.js";
+import { handleDevApi, type DevApiEnv } from "./dev-api.js";
 
-export interface Env {
+export interface Env extends DevApiEnv {
   ASSETS: Fetcher;
   CF_AI_GATEWAY_ACCOUNT_ID: string;
   CF_AI_GATEWAY_ID: string;
@@ -72,6 +73,10 @@ export default {
 
     if (url.pathname === "/api/ask" && request.method === "POST") {
       return handleAsk(request, env);
+    }
+
+    if (url.pathname.startsWith("/api/dev/")) {
+      return handleDevApi(env, request, url.pathname.slice("/api/dev/".length));
     }
 
     return env.ASSETS.fetch(request);
