@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useSimulation } from "../simulationContext.js";
 import { useProviderSettings } from "../providerContext.js";
+import { useStandingQuestions } from "../standingQuestionsContext.js";
 
 interface InterviewQuestion {
   id: string;
@@ -34,6 +35,7 @@ export function PromoteForm({
 }) {
   const { simulate } = useSimulation();
   const { providerConfig, gatewayConfig } = useProviderSettings();
+  const { questions: standingQuestions } = useStandingQuestions();
   const [step, setStep] = React.useState<Step>("idle");
   const [questions, setQuestions] = React.useState<InterviewQuestion[]>([]);
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
@@ -76,7 +78,7 @@ export function PromoteForm({
       const res = await fetch(`/api/dev/requests/${requestId}/promote/questions`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ simulate, providerConfig, gatewayConfig }),
+        body: JSON.stringify({ simulate, providerConfig, gatewayConfig, standingQuestions }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {

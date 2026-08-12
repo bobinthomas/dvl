@@ -27,13 +27,25 @@ combinations are invalid, the full accessibility contract (role, keyboard behavi
 contrast requirements), and content rules (label length, tone). Ask the human only the questions the
 PRD's text genuinely leaves open — don't ask something the PRD already answered. Ask 3-6 questions.`;
 
-/** Step 1: the model reads the PRD and asks only what it genuinely can't answer from it. */
+/**
+ * Step 1: the model reads the PRD and asks only what it genuinely can't
+ * answer from it. `alreadyAsked` — a Settings-configured standing baseline
+ * a human wants asked on every component, regardless of PRD (see
+ * mergeStandingQuestions) — is listed so the model adds to that set instead
+ * of re-asking the same thing under a different id or wording.
+ */
 export async function generateInterviewQuestions(
   client: ModelClient,
   model: string,
   componentName: string,
-  prdContext: string
+  prdContext: string,
+  alreadyAsked: InterviewQuestion[] = []
 ): Promise<InterviewQuestions> {
+  const alreadyAskedText =
+    alreadyAsked.length > 0
+      ? `\n\nThe following questions are already being asked separately — don't repeat them or ask something that overlaps:\n${alreadyAsked.map((q) => `- ${q.prompt}`).join("\n")}`
+      : "";
+
   return callModel(client, model, {
     schema: InterviewQuestionsSchema,
     schemaName: "interview_questions",
@@ -41,10 +53,23 @@ export async function generateInterviewQuestions(
     messages: [
       {
         role: "user",
-        content: `Component to spec: "${componentName}"\n\nPRD context:\n\n${prdContext}`,
+        content: `Component to spec: "${componentName}"\n\nPRD context:\n\n${prdContext}${alreadyAskedText}`,
       },
     ],
   });
+}
+
+/**
+ * Merges a human-authored standing baseline of questions (always asked,
+ * every component, configured in the docs site's Settings page) with the
+ * model's PRD-specific ones — standing questions first, dropping any
+ * generated question whose id collides with one already in the standing
+ * list. Used identically by dev-server/api.ts and worker/dev-api.ts's
+ * /promote/questions handlers.
+ */
+export function mergeStandingQuestions(standing: InterviewQuestion[], generated: InterviewQuestion[]): InterviewQuestion[] {
+  const standingIds = new Set(standing.map((q) => q.id));
+  return [...standing, ...generated.filter((q) => !standingIds.has(q.id))];
 }
 
 const SUGGEST_ANSWER_SYSTEM_PROMPT = `You are drafting one answer in a design-system component intake

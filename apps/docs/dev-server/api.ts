@@ -30,6 +30,7 @@ import {
   generateRequestContent,
   generateSamplePrd,
   suggestInterviewAnswer,
+  mergeStandingQuestions,
   ModelOutputError,
   type DirectProviderConfig,
   type GatewayEnv,
@@ -393,13 +394,17 @@ async function handlePromoteQuestions(
     return;
   }
 
-  const { simulate, providerConfig, gatewayConfig } = await parseJsonBody<{
+  const { simulate, providerConfig, gatewayConfig, standingQuestions } = await parseJsonBody<{
     simulate?: boolean;
     providerConfig?: DirectProviderConfig;
     gatewayConfig?: GatewayEnv;
+    standingQuestions?: InterviewQuestion[];
   }>(req);
   if (simulate) {
-    sendJson(res, 200, { ok: true, ...simulateInterviewQuestions() });
+    sendJson(res, 200, {
+      ok: true,
+      questions: mergeStandingQuestions(standingQuestions ?? [], simulateInterviewQuestions().questions),
+    });
     return;
   }
 
@@ -415,9 +420,10 @@ async function handlePromoteQuestions(
       client,
       model,
       request.name,
-      buildPrdContextFromRequest(request)
+      buildPrdContextFromRequest(request),
+      standingQuestions ?? []
     );
-    sendJson(res, 200, { ok: true, questions });
+    sendJson(res, 200, { ok: true, questions: mergeStandingQuestions(standingQuestions ?? [], questions) });
   } catch (err) {
     if (err instanceof ModelOutputError) {
       sendJson(res, 502, { ok: false, errors: [err.message] });

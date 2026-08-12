@@ -17,6 +17,7 @@ import {
   generateRequestContent,
   generateSamplePrd,
   suggestInterviewAnswer,
+  mergeStandingQuestions,
   ModelOutputError,
   type DirectProviderConfig,
   type GatewayEnv,
@@ -272,20 +273,32 @@ async function handlePromoteQuestions(env: DevApiEnv, request: Request, id: stri
     );
   }
 
-  const { simulate, providerConfig, gatewayConfig } = await parseJsonBody<{
+  const { simulate, providerConfig, gatewayConfig, standingQuestions } = await parseJsonBody<{
     simulate?: boolean;
     providerConfig?: DirectProviderConfig;
     gatewayConfig?: GatewayEnv;
+    standingQuestions?: InterviewQuestion[];
   }>(request);
-  if (simulate) return json({ ok: true, ...simulateInterviewQuestions() });
+  if (simulate) {
+    return json({
+      ok: true,
+      questions: mergeStandingQuestions(standingQuestions ?? [], simulateInterviewQuestions().questions),
+    });
+  }
 
   const resolved = resolveModelClient(env, providerConfig, gatewayConfig);
   if ("error" in resolved) return json({ ok: false, errors: [resolved.error] }, 503);
   const { client, model } = resolved;
 
   try {
-    const { questions } = await generateInterviewQuestions(client, model, found.request.name, buildPrdContextFromRequest(found.request));
-    return json({ ok: true, questions });
+    const { questions } = await generateInterviewQuestions(
+      client,
+      model,
+      found.request.name,
+      buildPrdContextFromRequest(found.request),
+      standingQuestions ?? []
+    );
+    return json({ ok: true, questions: mergeStandingQuestions(standingQuestions ?? [], questions) });
   } catch (err) {
     if (err instanceof ModelOutputError) return json({ ok: false, errors: [err.message] }, 502);
     throw err;

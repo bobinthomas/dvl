@@ -3,6 +3,7 @@ import {
   generateInterviewQuestions,
   draftSpecFromAnswers,
   suggestInterviewAnswer,
+  mergeStandingQuestions,
   InterviewQuestionsSchema,
   SuggestedAnswerSchema,
 } from "./intake-interview.js";
@@ -65,6 +66,17 @@ describe("generateInterviewQuestions", () => {
     const result = await generateInterviewQuestions(client, "test/model", "DatePicker", "some PRD context");
     expect(InterviewQuestionsSchema.safeParse(result).success).toBe(true);
     expect(result.questions).toHaveLength(1);
+  });
+
+  it("lists already-asked prompts so the model doesn't repeat them", async () => {
+    const client = fakeClient([{ questions: [] }]);
+    await generateInterviewQuestions(client, "test/model", "DatePicker", "PRD context", [
+      { id: "loading-state", prompt: "Does this need a loading state?", why: "always asked" },
+    ]);
+    const args = (client.complete as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    const userMessage = args.messages.find((m: { role: string }) => m.role === "user").content;
+    expect(userMessage).toContain("Does this need a loading state?");
+    expect(userMessage).toContain("already being asked separately");
   });
 });
 
@@ -162,6 +174,23 @@ describe("draftSpecFromAnswers", () => {
     expect(userMessage).toContain("{color.action.primary.default.bg}");
     expect(userMessage).toContain("{spacing.sm}");
     expect(userMessage).toContain("{fontSize.sm}");
+  });
+});
+
+describe("mergeStandingQuestions", () => {
+  it("puts standing questions first and appends non-colliding generated ones", () => {
+    const standing = [{ id: "loading-state", prompt: "Does this need a loading state?", why: "always asked" }];
+    const generated = [{ id: "intent", prompt: "When should this be used?", why: "the PRD doesn't say" }];
+    expect(mergeStandingQuestions(standing, generated)).toEqual([...standing, ...generated]);
+  });
+
+  it("drops a generated question whose id collides with a standing one", () => {
+    const standing = [{ id: "intent", prompt: "When should this be used, per our standard?", why: "always asked" }];
+    const generated = [
+      { id: "intent", prompt: "When should this be used?", why: "the PRD doesn't say" },
+      { id: "edge_cases", prompt: "Any invalid combinations?", why: "not covered" },
+    ];
+    expect(mergeStandingQuestions(standing, generated)).toEqual([standing[0], generated[1]]);
   });
 });
 

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { PROVIDER_INFO, useProviderSettings, type DirectProvider } from "../providerContext.js";
+import { useStandingQuestions } from "../standingQuestionsContext.js";
 
 interface EnvStatusResponse {
   ok: boolean;
@@ -190,6 +191,8 @@ export function SettingsPage() {
           (from apps/docs/.env.local).
         </p>
       </section>
+
+      <StandingQuestionsSection />
     </div>
   );
 }
@@ -198,4 +201,80 @@ function statusMark(envStatus: EnvStatus, key: "accountId" | "gatewayId" | "toke
   if (envStatus === "loading") return "…";
   if (envStatus === "unavailable") return "unknown";
   return envStatus.gateway?.[key] ? "✓ set" : "✗ not set";
+}
+
+/**
+ * A standing baseline of questions asked first in every promote-step
+ * interview, before whatever the AI generates for that specific PRD (see
+ * mergeStandingQuestions in @ds-platform/agents). Global — one list for
+ * every component, not per-category.
+ */
+function StandingQuestionsSection() {
+  const { questions, addQuestion, removeQuestion } = useStandingQuestions();
+  const [prompt, setPrompt] = React.useState("");
+  const [why, setWhy] = React.useState("");
+
+  function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!prompt.trim()) return;
+    addQuestion(prompt, why);
+    setPrompt("");
+    setWhy("");
+  }
+
+  return (
+    <section className="doc-section">
+      <h2>Interview questions</h2>
+      <p className="settings-summary">
+        {questions.length === 0
+          ? "No standing questions yet — every promote interview is entirely AI-generated."
+          : `${questions.length} standing question${questions.length === 1 ? "" : "s"}, asked first in every promote interview, before the AI's own questions for that component.`}
+      </p>
+
+      {questions.length > 0 && (
+        <ul className="standing-questions__list">
+          {questions.map((q) => (
+            <li key={q.id} className="standing-questions__item">
+              <div>
+                <strong>{q.prompt}</strong>
+                {q.why && <p className="settings-hint">{q.why}</p>}
+              </div>
+              <button
+                type="button"
+                className="standing-questions__remove"
+                onClick={() => removeQuestion(q.id)}
+                aria-label={`Remove question: ${q.prompt}`}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={handleAdd} className="request-form__fields">
+        <label className="form-field">
+          Question
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={2}
+            placeholder="e.g. Does this need a loading state?"
+          />
+        </label>
+        <label className="form-field">
+          Why (optional)
+          <input
+            type="text"
+            value={why}
+            onChange={(e) => setWhy(e.target.value)}
+            placeholder="e.g. asynchronous data is common in this product"
+          />
+        </label>
+        <button type="submit" className="ask-widget__submit" disabled={!prompt.trim()}>
+          Add question
+        </button>
+      </form>
+    </section>
+  );
 }

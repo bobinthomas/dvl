@@ -4,6 +4,7 @@ import { App } from "./App.js";
 import { SimulationProvider } from "./simulationContext.js";
 import { ProviderSettingsProvider } from "./providerContext.js";
 import { DevApiProvider } from "./devApiContext.js";
+import { StandingQuestionsProvider } from "./standingQuestionsContext.js";
 import "./styles/base.css";
 
 const root = document.getElementById("root");
@@ -13,9 +14,11 @@ createRoot(root).render(
   <React.StrictMode>
     <ProviderSettingsProvider>
       <SimulationProvider>
-        <DevApiProvider>
-          <App />
-        </DevApiProvider>
+        <StandingQuestionsProvider>
+          <DevApiProvider>
+            <App />
+          </DevApiProvider>
+        </StandingQuestionsProvider>
       </SimulationProvider>
     </ProviderSettingsProvider>
   </React.StrictMode>
