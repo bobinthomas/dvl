@@ -65,7 +65,7 @@ export function CodeTabs({ spec }: { spec: ComponentSpec }) {
         {config.documentation.code_examples.include_copy_button && (
           <button
             type="button"
-            className="code-tabs__copy"
+            className="copy-button"
             disabled={!snippet}
             onClick={handleCopy}
           >

@@ -13,6 +13,30 @@ const STATUS_ORDER: ComponentRequestStatus[] = [
   "rejected",
 ];
 
+function DesignBrief({ brief }: { brief: string }) {
+  const [copied, setCopied] = React.useState(false);
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(brief);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <details>
+      <summary>Design brief</summary>
+      <div className="code-tabs__nav">
+        <button type="button" className="copy-button" onClick={handleCopy}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className="code-block" style={{ whiteSpace: "pre-wrap" }}>
+        {brief}
+      </pre>
+    </details>
+  );
+}
+
 function RequestRow({ entry, onViewComponent }: { entry: RequestEntry; onViewComponent?: (id: string) => void }) {
   const { request, brief } = entry;
   return (
@@ -24,14 +48,7 @@ function RequestRow({ entry, onViewComponent }: { entry: RequestEntry; onViewCom
       </td>
       <td>
         {request.problem}
-        {brief && (
-          <details>
-            <summary>Design brief</summary>
-            <pre className="code-block" style={{ whiteSpace: "pre-wrap" }}>
-              {brief}
-            </pre>
-          </details>
-        )}
+        {brief && <DesignBrief brief={brief} />}
       </td>
       <td>
         {request.expectedVariants.length > 0

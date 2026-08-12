@@ -83,7 +83,9 @@ export async function suggestInterviewAnswer(
 
 const DRAFT_SYSTEM_PROMPT = `You write component specs for a design system, from a PRD and a human's
 answers to your intake interview. Output must conform exactly to the provided JSON schema (the same
-schema every hand-authored spec in this platform is validated against). Every token reference must be
+schema every hand-authored spec in this platform is validated against). Every prop name and anatomy
+part name must be camelCase — e.g. "iconPosition", "loadingLabel" — never PascalCase ("IconPosition"),
+kebab-case ("icon-position"), or snake_case ("icon_position"). Every token reference must be
 a {a.b.c}-style reference, and it must be EXACTLY one of the token paths listed in the "Available
 tokens" section of the user message — never a raw hex/px/rem value, and never a path you invent by
 guessing at this platform's naming convention, even if it looks plausible. If nothing in the list
@@ -141,6 +143,86 @@ function normalizeInvalidCombinations(raw: unknown): unknown {
   return { ...spec, invalidCombinations: fixed };
 }
 
+const CAMEL_CASE_OK = /^[a-z][a-zA-Z0-9]*$/;
+
+function toCamelCase(input: string): string {
+  const words = input
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean);
+  if (words.length === 0) return input;
+  return words.map((w, i) => (i === 0 ? w.toLowerCase() : w[0]!.toUpperCase() + w.slice(1).toLowerCase())).join("");
+}
+
+/**
+ * A model sometimes names a prop "IconPosition", "icon-position", or
+ * "icon_position" instead of this schema's required camelCase, despite the
+ * prompt spelling out the convention. Coerces every prop name to camelCase
+ * before validation (idempotent for already-correct names) and carries the
+ * same rename into invalidCombinations' keys and examples' props — the
+ * schema cross-checks invalidCombinations keys against declared prop names
+ * (see schema.ts's superRefine), so renaming the prop without updating that
+ * reference would just trade one validation failure for another.
+ */
+function normalizePropNames(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null) return raw;
+  const spec = raw as Record<string, unknown>;
+  if (!Array.isArray(spec.props)) return raw;
+
+  const renames = new Map<string, string>();
+  const props = spec.props.map((p) => {
+    if (typeof p !== "object" || p === null || typeof (p as { name?: unknown }).name !== "string") return p;
+    const oldName = (p as { name: string }).name;
+    if (CAMEL_CASE_OK.test(oldName)) return p;
+    const newName = toCamelCase(oldName);
+    renames.set(oldName, newName);
+    return { ...p, name: newName };
+  });
+  if (renames.size === 0) return { ...spec, props };
+
+  const invalidCombinations = Array.isArray(spec.invalidCombinations)
+    ? spec.invalidCombinations.map((combo) => {
+        if (typeof combo !== "object" || combo === null) return combo;
+        const next: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(combo as Record<string, unknown>)) {
+          next[renames.get(key) ?? key] = value;
+        }
+        return next;
+      })
+    : spec.invalidCombinations;
+
+  const examples = Array.isArray(spec.examples)
+    ? spec.examples.map((example) => {
+        if (typeof example !== "object" || example === null) return example;
+        const exampleProps = (example as { props?: unknown }).props;
+        if (typeof exampleProps !== "object" || exampleProps === null) return example;
+        const nextProps: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(exampleProps as Record<string, unknown>)) {
+          nextProps[renames.get(key) ?? key] = value;
+        }
+        return { ...example, props: nextProps };
+      })
+    : spec.examples;
+
+  return { ...spec, props, invalidCombinations, examples };
+}
+
+/** Same camelCase fix as normalizePropNames, for anatomy part names — nothing else in the schema cross-references them. */
+function normalizeAnatomyPartNames(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null) return raw;
+  const spec = raw as Record<string, unknown>;
+  const anatomy = spec.anatomy;
+  if (typeof anatomy !== "object" || anatomy === null || !Array.isArray((anatomy as { parts?: unknown }).parts)) {
+    return raw;
+  }
+  const parts = (anatomy as { parts: unknown[] }).parts.map((part) => {
+    if (typeof part !== "object" || part === null || typeof (part as { name?: unknown }).name !== "string") return part;
+    const name = (part as { name: string }).name;
+    return CAMEL_CASE_OK.test(name) ? part : { ...part, name: toCamelCase(name) };
+  });
+  return { ...spec, anatomy: { ...anatomy, parts } };
+}
+
 /**
  * Step 2: draft a spec from the PRD + the human's interview answers. Always
  * forced to status: "draft". `validTokenPaths` is this platform's real,
@@ -178,9 +260,11 @@ export async function draftSpecFromAnswers(
     // instruction can't also trip the schema's stable-requires-a11y rule.
     normalize: (raw) => {
       const withFixedCombinations = normalizeInvalidCombinations(raw);
-      return typeof withFixedCombinations === "object" && withFixedCombinations !== null
-        ? { ...withFixedCombinations, status: "draft" }
-        : withFixedCombinations;
+      const withFixedPropNames = normalizePropNames(withFixedCombinations);
+      const withFixedAnatomyNames = normalizeAnatomyPartNames(withFixedPropNames);
+      return typeof withFixedAnatomyNames === "object" && withFixedAnatomyNames !== null
+        ? { ...withFixedAnatomyNames, status: "draft" }
+        : withFixedAnatomyNames;
     },
   });
 }

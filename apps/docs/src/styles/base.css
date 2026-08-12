@@ -539,7 +539,7 @@ section.doc-section:first-of-type {
   background: var(--panel);
 }
 
-.code-tabs__copy {
+.copy-button {
   margin-left: auto;
   margin-right: var(--space-3);
   padding: 0.2rem 0.6rem;
@@ -552,12 +552,12 @@ section.doc-section:first-of-type {
   cursor: pointer;
 }
 
-.code-tabs__copy:hover:not(:disabled) {
+.copy-button:hover:not(:disabled) {
   color: var(--ink);
   border-color: var(--ink-soft);
 }
 
-.code-tabs__copy:disabled {
+.copy-button:disabled {
   cursor: default;
   opacity: 0.5;
 }

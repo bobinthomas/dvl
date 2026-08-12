@@ -120,6 +120,40 @@ describe("draftSpecFromAnswers", () => {
     expect(client.complete).toHaveBeenCalledTimes(2);
   });
 
+  it("coerces a PascalCase prop name to camelCase, carrying the rename into invalidCombinations and examples", async () => {
+    const draftWithBadPropName = {
+      ...MINIMAL_VALID_DRAFT,
+      props: [{ ...MINIMAL_VALID_DRAFT.props[0], name: "OnSelect" }],
+      invalidCombinations: [{ OnSelect: "required", state: "disabled" }],
+      examples: [{ name: "Default", props: { OnSelect: "handler" }, state: "default" }],
+    };
+    const client = fakeClient([draftWithBadPropName]);
+    const spec = await draftSpecFromAnswers(client, "test/model", "DatePicker", "PRD context", {}, SAMPLE_TOKEN_PATHS);
+    expect(spec.props[0]!.name).toBe("onSelect");
+    expect(spec.invalidCombinations).toEqual([{ onSelect: "required", state: "disabled" }]);
+    expect(spec.examples[0]!.props).toEqual({ onSelect: "handler" });
+    expect(client.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("coerces a kebab-case or snake_case prop name to camelCase", async () => {
+    const client = fakeClient([
+      { ...MINIMAL_VALID_DRAFT, props: [{ ...MINIMAL_VALID_DRAFT.props[0], name: "icon-position" }] },
+    ]);
+    const spec = await draftSpecFromAnswers(client, "test/model", "DatePicker", "PRD context", {}, SAMPLE_TOKEN_PATHS);
+    expect(spec.props[0]!.name).toBe("iconPosition");
+  });
+
+  it("coerces a non-camelCase anatomy part name to camelCase", async () => {
+    const client = fakeClient([
+      {
+        ...MINIMAL_VALID_DRAFT,
+        anatomy: { root: "div element", parts: [{ name: "IconContainer", description: "Wraps the icon.", optional: true }] },
+      },
+    ]);
+    const spec = await draftSpecFromAnswers(client, "test/model", "DatePicker", "PRD context", {}, SAMPLE_TOKEN_PATHS);
+    expect(spec.anatomy.parts[0]!.name).toBe("iconContainer");
+  });
+
   it("passes the real token vocabulary to the model so it can't only guess at plausible-sounding paths", async () => {
     const client = fakeClient([MINIMAL_VALID_DRAFT]);
     await draftSpecFromAnswers(client, "test/model", "DatePicker", "PRD context", {}, SAMPLE_TOKEN_PATHS);
