@@ -26,11 +26,12 @@ export interface ModelClient {
 }
 
 /**
- * The only file in this package that imports the `openai` npm package.
  * Routes through the Cloudflare AI Gateway's OpenAI-compatible endpoint —
  * never a provider SDK directly — so swapping
  * "workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast" for
  * "anthropic/claude-sonnet-4-5" is a DS_MODEL env var change, nothing else.
+ * See direct-client.ts for the sibling `ModelClient` that calls a
+ * Groq/OpenRouter/Kimi key directly instead of the Gateway.
  */
 export function createGatewayClient(env: GatewayEnv): ModelClient {
   const client = new OpenAI({ baseURL: gatewayBaseUrl(env), apiKey: env.apiToken });

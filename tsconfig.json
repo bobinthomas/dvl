@@ -5,6 +5,7 @@
     { "path": "packages/agents" },
     { "path": "packages/governance" },
     { "path": "packages/mcp-server" },
+    { "path": "packages/figma-client" },
     { "path": "packages/validator" },
     { "path": "packages/generators/react" },
     { "path": "packages/generators/react-native" },

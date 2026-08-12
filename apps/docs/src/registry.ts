@@ -1,3 +1,4 @@
+import * as React from "react";
 import type { ComponentType } from "react";
 import { ComponentSpecSchema, type ComponentSpec } from "@ds-platform/core/schema";
 
@@ -9,50 +10,97 @@ export interface ComponentEntry {
   changelog?: string;
 }
 
-const specModules = import.meta.glob("../../../components/*/spec.json", { eager: true }) as Record<
-  string,
-  { default: unknown }
->;
-
-const componentModules = import.meta.glob("../../../generated/react/*.tsx", { eager: true }) as Record<
-  string,
-  Record<string, unknown>
->;
-
-const changelogModules = import.meta.glob("../../../components/*/CHANGELOG.md", {
-  eager: true,
-  query: "?raw",
-  import: "default",
-}) as Record<string, string>;
-
-function findComponent(spec: ComponentSpec): ComponentType<Record<string, unknown>> | undefined {
-  const entry = Object.entries(componentModules).find(([path]) => path.endsWith(`/${spec.name}.tsx`));
-  return entry?.[1]?.[spec.name] as ComponentType<Record<string, unknown>> | undefined;
+interface ListResponse {
+  ok: boolean;
+  components?: { spec: unknown; changelog?: string }[];
+  repoRoot?: string;
+  errors?: string[];
 }
 
-function findChangelog(spec: ComponentSpec): string | undefined {
-  const entry = Object.entries(changelogModules).find(([path]) => path.includes(`/${spec.id}/CHANGELOG.md`));
-  return entry?.[1];
+export interface RegistryState {
+  entries: ComponentEntry[];
+  loading: boolean;
+  error: string | null;
 }
 
 /**
- * Every spec that has generated React output, sorted by name. A spec
- * without a matching generated component (never built, or build failed)
- * is left out rather than shown broken — `ds build` is what fixes that,
- * not a docs-app workaround.
+ * Every spec with generated React output, sorted by name — fetched fresh
+ * from /api/dev/components/list on every mount, not via `import.meta.glob`.
+ *
+ * The glob approach used to list components/*​/spec.json AND
+ * generated/react/*.tsx the same way requestRegistry.ts's old glob listed
+ * requests — and hit the identical failure: Vite's dev-time file watcher
+ * repeatedly failed to notice a brand-new file (e.g. right after `ds
+ * build` writes generated/react/<Name>.tsx), silently serving a stale scan
+ * that's missing it, with no error, until the whole dev server was
+ * restarted — confirmed live, even with polling enabled.
+ *
+ * The fix here has two parts, mirroring requestRegistry.ts for the list
+ * itself, plus one more step since a component (unlike a request) is real
+ * code, not JSON: the spec list comes from the same always-fresh
+ * `findSpecFiles`-backed route; then each component module is loaded with
+ * a genuinely dynamic `import()` of its exact `/@fs/<repoRoot>/generated/
+ * react/<Name>.tsx` URL. That's a real per-URL HTTP request Vite transforms
+ * on demand from whatever's currently on disk — confirmed directly (curl'd
+ * a brand-new .tsx file Vite's glob had never seen and it served
+ * immediately) — never a pre-scanned glob file list that can go stale.
  */
-interface Candidate {
-  spec: ComponentSpec;
-  Component: ComponentType<Record<string, unknown>> | undefined;
-  changelog?: string;
-}
+export function useRegistry(): RegistryState {
+  const [entries, setEntries] = React.useState<ComponentEntry[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
-function hasComponent(candidate: Candidate): candidate is ComponentEntry {
-  return candidate.Component !== undefined;
-}
+  React.useEffect(() => {
+    let cancelled = false;
 
-export const registry: ComponentEntry[] = Object.values(specModules)
-  .map((mod) => ComponentSpecSchema.parse(mod.default))
-  .map((spec): Candidate => ({ spec, Component: findComponent(spec), changelog: findChangelog(spec) }))
-  .filter(hasComponent)
-  .sort((a, b) => a.spec.name.localeCompare(b.spec.name));
+    async function load() {
+      const res = await fetch("/api/dev/components/list", { method: "POST" });
+      const data = (await res.json().catch(() => null)) as ListResponse | null;
+      if (!data?.ok || !data.components || !data.repoRoot) {
+        throw new Error(data?.errors?.join("; ") ?? "failed to load components");
+      }
+
+      const fsRoot = data.repoRoot.replace(/\\/g, "/");
+      const loaded = await Promise.all(
+        data.components.map(async ({ spec: rawSpec, changelog }): Promise<ComponentEntry | undefined> => {
+          const spec = ComponentSpecSchema.parse(rawSpec);
+          const url = `/@fs/${fsRoot}/generated/react/${spec.name}.tsx`;
+          try {
+            const mod: Record<string, unknown> = await import(/* @vite-ignore */ url);
+            const Component = mod[spec.name] as ComponentType<Record<string, unknown>> | undefined;
+            // Not built yet, or the last build failed — same "leave it out
+            // rather than show it broken" posture the old glob version had.
+            if (!Component) return undefined;
+            return { spec, Component, changelog };
+          } catch {
+            return undefined;
+          }
+        })
+      );
+
+      return loaded
+        .filter((e): e is ComponentEntry => e !== undefined)
+        .sort((a, b) => a.spec.name.localeCompare(b.spec.name));
+    }
+
+    load()
+      .then((result) => {
+        if (!cancelled) {
+          setEntries(result);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "failed to load components");
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { entries, loading, error };
+}

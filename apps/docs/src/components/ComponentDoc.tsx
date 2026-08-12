@@ -10,6 +10,7 @@ import { AccessibilityContract } from "./AccessibilityContract.js";
 import { TokenMap } from "./TokenMap.js";
 import { CodeTabs } from "./CodeTabs.js";
 import { Changelog } from "./Changelog.js";
+import { DocCheckButton } from "./DocCheckButton.js";
 
 function Section({
   id,
@@ -41,6 +42,7 @@ export function ComponentDoc({ entry }: { entry: ComponentEntry }) {
         <div style={{ marginTop: "0.75rem" }}>
           <span className="status-pill">{spec.status}</span>
         </div>
+        <DocCheckButton id={spec.id} />
       </header>
 
       <Section id="anatomy" title="Anatomy">

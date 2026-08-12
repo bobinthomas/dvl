@@ -1,0 +1,18 @@
+{
+  "id": "status-indicator",
+  "name": "StatusIndicator",
+  "category": "actions",
+  "problem": "The product team needs a standardized status indicator to provide visual cues for ongoing actions, such as saving, loading, or processing, to keep users informed about the progress of their requests. This status indicator should be reusable across different features and views, including forms, lists, and detail pages. By having a consistent status indicator, we can reduce user confusion and improve the overall user experience. The indicator should be able to display various states, like success, error, or pending, to accurately reflect the status of the action.",
+  "expectedVariants": [
+    "primary",
+    "success",
+    "error",
+    "loading",
+    "warning"
+  ],
+  "status": "promoted",
+  "requestedBy": "bobin",
+  "requestedAt": "2026-08-10T07:04:21.699Z",
+  "figmaFileKey": "ANKNyWv3v2bP6eWjpFH3gO",
+  "promotedSpecId": "status-indicator"
+}

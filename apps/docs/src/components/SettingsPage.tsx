@@ -1,0 +1,201 @@
+import * as React from "react";
+import { PROVIDER_INFO, useProviderSettings, type DirectProvider } from "../providerContext.js";
+
+interface EnvStatusResponse {
+  ok: boolean;
+  gateway?: { accountId: boolean; gatewayId: boolean; token: boolean; model: boolean };
+  figma?: { accessToken: boolean };
+}
+
+type EnvStatus = "loading" | "unavailable" | EnvStatusResponse;
+
+/**
+ * Every credential the docs app's UI can supply in place of a
+ * .env.local/.dev.vars value, in one place — so "why is this still failing"
+ * has a single screen to check instead of hunting across three forms.
+ * Priority order (see dev-server/resolve-client.ts) is always: what's typed
+ * here first, then this machine's own env vars. The status line under each
+ * section reflects that same order, combining what's in this browser
+ * (providerConfig/gatewayConfig/figmaConfig) with what's on the server
+ * (fetched once from /api/dev/env-status — booleans only, never values).
+ */
+export function SettingsPage() {
+  const {
+    provider,
+    apiKey,
+    model,
+    setProvider,
+    setApiKey,
+    setModel,
+    gatewayAccountId,
+    gatewayGatewayId,
+    gatewayToken,
+    gatewayModel,
+    setGatewayAccountId,
+    setGatewayGatewayId,
+    setGatewayToken,
+    setGatewayModel,
+    figmaAccessToken,
+    setFigmaAccessToken,
+    providerConfig,
+    gatewayConfig,
+    figmaConfig,
+  } = useProviderSettings();
+
+  const [envStatus, setEnvStatus] = React.useState<EnvStatus>("loading");
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/dev/env-status", { method: "POST" })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`request failed (${res.status})`))))
+      .then((data: EnvStatusResponse) => {
+        if (!cancelled) setEnvStatus(data);
+      })
+      .catch(() => {
+        if (!cancelled) setEnvStatus("unavailable");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const gatewayEnvReady =
+    envStatus !== "loading" &&
+    envStatus !== "unavailable" &&
+    !!envStatus.gateway?.accountId &&
+    !!envStatus.gateway?.gatewayId &&
+    !!envStatus.gateway?.token &&
+    !!envStatus.gateway?.model;
+  const figmaEnvReady =
+    envStatus !== "loading" && envStatus !== "unavailable" && !!envStatus.figma?.accessToken;
+
+  let aiSummary: string;
+  if (providerConfig) aiSummary = `Using ${PROVIDER_INFO[providerConfig.provider].label} (configured below).`;
+  else if (gatewayConfig) aiSummary = "Using Cloudflare AI Gateway (configured below).";
+  else if (gatewayEnvReady) aiSummary = "Using Cloudflare AI Gateway (this machine's apps/docs/.env.local).";
+  else if (envStatus === "loading") aiSummary = "Checking what's already configured…";
+  else aiSummary = "Not configured yet — every \"Generate with AI\" action will fail until one path below is filled in.";
+
+  let figmaSummary: string;
+  if (figmaConfig) figmaSummary = "Using the Figma token configured below.";
+  else if (figmaEnvReady) figmaSummary = "Using this machine's FIGMA_ACCESS_TOKEN (apps/docs/.env.local).";
+  else if (envStatus === "loading") figmaSummary = "Checking what's already configured…";
+  else figmaSummary = "Not configured — real (non-simulated) Verify checks will fail until this is filled in.";
+
+  return (
+    <div>
+      <div className="component-header">
+        <span className="kicker">Settings</span>
+        <h1 className="display">AI &amp; Figma credentials</h1>
+        <p className="lede">
+          Everything here is stored only in this browser's localStorage and sent straight from the local dev
+          server to the provider — never to an env file, never committed. Leave everything blank to keep using
+          Simulation mode or this machine's own env vars.
+        </p>
+      </div>
+
+      <section className="doc-section">
+        <h2>AI generation</h2>
+        <p className="settings-summary">{aiSummary}</p>
+
+        <h3>Direct provider</h3>
+        <div className="request-form__fields">
+          <label className="form-field">
+            Provider
+            <select value={provider} onChange={(e) => setProvider(e.target.value as DirectProvider)}>
+              {(Object.keys(PROVIDER_INFO) as DirectProvider[]).map((p) => (
+                <option key={p} value={p}>
+                  {PROVIDER_INFO[p].label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="form-field">
+            API key
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="paste your key"
+              autoComplete="off"
+            />
+          </label>
+          <label className="form-field">
+            Model
+            <input
+              type="text"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder={PROVIDER_INFO[provider].modelPlaceholder}
+            />
+            <span className="settings-hint">
+              Leave blank to use the placeholder above ({PROVIDER_INFO[provider].modelPlaceholder}).
+            </span>
+          </label>
+        </div>
+
+        <h3>Cloudflare AI Gateway</h3>
+        <p className="settings-hint">Only used if no direct-provider key above is set.</p>
+        <div className="request-form__fields">
+          <label className="form-field">
+            Account ID
+            <input type="text" value={gatewayAccountId} onChange={(e) => setGatewayAccountId(e.target.value)} />
+          </label>
+          <label className="form-field">
+            Gateway ID
+            <input type="text" value={gatewayGatewayId} onChange={(e) => setGatewayGatewayId(e.target.value)} />
+          </label>
+          <label className="form-field">
+            API token
+            <input
+              type="password"
+              value={gatewayToken}
+              onChange={(e) => setGatewayToken(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
+          <label className="form-field">
+            Model
+            <input
+              type="text"
+              value={gatewayModel}
+              onChange={(e) => setGatewayModel(e.target.value)}
+              placeholder="workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+            />
+          </label>
+        </div>
+        <p className="settings-hint">
+          Server has: account id {statusMark(envStatus, "accountId")}, gateway id {statusMark(envStatus, "gatewayId")},
+          token {statusMark(envStatus, "token")}, model {statusMark(envStatus, "model")} (from apps/docs/.env.local).
+        </p>
+      </section>
+
+      <section className="doc-section">
+        <h2>Figma verification</h2>
+        <p className="settings-summary">{figmaSummary}</p>
+        <div className="request-form__fields">
+          <label className="form-field">
+            Figma access token
+            <input
+              type="password"
+              value={figmaAccessToken}
+              onChange={(e) => setFigmaAccessToken(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
+        </div>
+        <p className="settings-hint">
+          Server has: access token{" "}
+          {envStatus === "loading" ? "…" : envStatus === "unavailable" ? "unknown" : figmaEnvReady ? "✓ set" : "✗ not set"}{" "}
+          (from apps/docs/.env.local).
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function statusMark(envStatus: EnvStatus, key: "accountId" | "gatewayId" | "token" | "model"): string {
+  if (envStatus === "loading") return "…";
+  if (envStatus === "unavailable") return "unknown";
+  return envStatus.gateway?.[key] ? "✓ set" : "✗ not set";
+}

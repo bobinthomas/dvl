@@ -14,6 +14,7 @@
     "@ds-platform/generator-react-native": "workspace:*",
     "@ds-platform/generator-stories": "workspace:*",
     "@ds-platform/generator-tests": "workspace:*",
+    "@ds-platform/figma-client": "workspace:*",
     "@ds-platform/governance": "workspace:*",
     "@ds-platform/validator": "workspace:*",
     "commander": "^12.1.0",

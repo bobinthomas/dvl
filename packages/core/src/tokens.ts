@@ -109,3 +109,25 @@ export function tokenResolves(ref: string, tree: TokenTree): boolean {
     return false;
   }
 }
+
+/**
+ * Every leaf path this tree can resolve, as bare "a.b.c" strings (no
+ * surrounding braces). For handing an AI drafting a spec the real token
+ * vocabulary to pick from — this platform's naming (`color.action.*`,
+ * `fontSize.sm/md/lg`, no "text"/"background" categories, no "small") isn't
+ * guessable from convention alone, so a model with no visibility into the
+ * actual tree can only ever invent plausible-sounding paths that don't
+ * resolve.
+ */
+export function flattenTokenPaths(tree: TokenTree, prefix: string[] = []): string[] {
+  const paths: string[] = [];
+  for (const [key, node] of Object.entries(tree)) {
+    const path = [...prefix, key];
+    if (isTokenNode(node)) {
+      paths.push(path.join("."));
+    } else {
+      paths.push(...flattenTokenPaths(node as TokenTree, path));
+    }
+  }
+  return paths;
+}

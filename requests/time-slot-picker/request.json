@@ -1,0 +1,16 @@
+{
+  "id": "time-slot-picker",
+  "name": "TimeSlotPicker",
+  "category": "actions",
+  "problem": "The current scheduling workflow requires users to manually enter time slots, which can lead to errors and inconsistencies. A time-slot-picker component would allow users to easily select available time slots, improving the overall user experience and reducing mistakes. This component would be particularly useful in features like meeting scheduling and appointment booking, where precise time selection is crucial. By providing a standardized time-slot-picker component, we can ensure consistency across the application and make it easier for users to interact with time-based features.",
+  "expectedVariants": [
+    "default",
+    "compact",
+    "with-timezone",
+    "with-duration"
+  ],
+  "status": "in-design",
+  "requestedBy": "bobin",
+  "requestedAt": "2026-08-10T06:35:52.647Z",
+  "figmaFileKey": "ANKNyWv3v2bP6eWjpFH3gO"
+}

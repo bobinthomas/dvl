@@ -15,6 +15,11 @@ export const InterviewQuestionsSchema = z.object({
 });
 export type InterviewQuestions = z.infer<typeof InterviewQuestionsSchema>;
 
+export const SuggestedAnswerSchema = z.object({
+  answer: z.string().min(1).describe("A plausible, concrete first-draft answer, 1-4 sentences."),
+});
+export type SuggestedAnswer = z.infer<typeof SuggestedAnswerSchema>;
+
 const QUESTIONS_SYSTEM_PROMPT = `You are conducting a design-system component intake interview. A PRD describes
 a product need; you must draft a component spec from it, but specs require decisions a PRD never makes:
 intent (when to use this component vs. an alternative), when NOT to use it, which prop/state
@@ -42,28 +47,121 @@ export async function generateInterviewQuestions(
   });
 }
 
+const SUGGEST_ANSWER_SYSTEM_PROMPT = `You are drafting one answer in a design-system component intake
+interview, so a human has a starting point instead of a blank textarea. Given the component name, PRD
+context, the other questions being asked (context only — don't answer those), and the one question to
+answer, write a plausible, concrete 1-4 sentence first-draft answer. Make a reasonable, conservative
+judgment call rather than hedging — this is a draft the human will review and edit, not a final
+decision.`;
+
+/** One question's worth of "generate with AI" for PromoteForm's interview step — a draft answer, not a final one. */
+export async function suggestInterviewAnswer(
+  client: ModelClient,
+  model: string,
+  componentName: string,
+  prdContext: string,
+  question: InterviewQuestion,
+  otherQuestions: InterviewQuestion[]
+): Promise<SuggestedAnswer> {
+  const otherQuestionsText =
+    otherQuestions.length > 0
+      ? `Other questions being asked separately (for context only — don't answer these):\n${otherQuestions.map((q) => `- ${q.prompt}`).join("\n")}`
+      : "No other questions are being asked.";
+
+  return callModel(client, model, {
+    schema: SuggestedAnswerSchema,
+    schemaName: "suggested_answer",
+    system: SUGGEST_ANSWER_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: `Component to spec: "${componentName}"\n\nPRD context:\n\n${prdContext}\n\n${otherQuestionsText}\n\nQuestion to answer: ${question.prompt}\n(why this is being asked: ${question.why})`,
+      },
+    ],
+  });
+}
+
 const DRAFT_SYSTEM_PROMPT = `You write component specs for a design system, from a PRD and a human's
 answers to your intake interview. Output must conform exactly to the provided JSON schema (the same
 schema every hand-authored spec in this platform is validated against). Every token reference must be
-a {a.b.c}-style reference — never a raw hex, px, or rem value; if you don't know the exact token to
-use, reference a plausible one following the existing naming pattern (color.action.*, spacing.*,
-fontSize.*, radius.*) rather than inventing a raw value. Set "status" to "draft" always — this is a
-first pass for a human to review and edit, not a finished contract, and you must never claim
-completeness you don't have. If the interview didn't cover something the schema requires, make the
-most conservative reasonable choice and keep the component's "description" honest about what's
-assumed.`;
+a {a.b.c}-style reference, and it must be EXACTLY one of the token paths listed in the "Available
+tokens" section of the user message — never a raw hex/px/rem value, and never a path you invent by
+guessing at this platform's naming convention, even if it looks plausible. If nothing in the list
+genuinely fits a given property, prefer the closest available token over inventing one, and note the
+gap in the component's "description" rather than silently picking something wrong. Set "status" to
+"draft" always — this is a first pass for a human to review and edit, not a finished contract, and you
+must never claim completeness you don't have. If the interview didn't cover something the schema
+requires, make the most conservative reasonable choice and keep the component's "description" honest
+about what's assumed.
 
-/** Step 2: draft a spec from the PRD + the human's interview answers. Always forced to status: "draft". */
+"invalidCombinations" entries are flat objects where every value is a STRING, never a boolean —
+including for states. To mark a state as part of an invalid combination, use the key "state" with the
+state's name as the string value, e.g. {"state": "loading", "variant": "ghost"} (loading + ghost is
+invalid) — never {"loading": true}, which fails validation. Every entry needs at least two keys; use
+an empty array if nothing is genuinely invalid.
+
+"examples" must collectively exercise every declared value, not just illustrate the happy path: for
+every enum prop, every one of its "values" must be set explicitly (not left to the default) by at
+least one example's "props" — combine several remaining values into one example's props where that's
+natural, rather than only ever setting one prop per example. Separately, for every state in "states"
+that is NOT "hover", "active", or "focus" (those are checked via CSS, not examples), at least one
+example's "state" must equal it exactly. Two examples are rarely enough once there's more than one
+enum prop or a non-default state — write as many as it takes to cover everything declared, don't
+under-declare "values"/"states" just to keep the example count low.`;
+
+const KNOWN_STATES = new Set(["default", "hover", "active", "focus", "disabled", "loading"]);
+
+/**
+ * A weaker model sometimes represents "invalid while loading" as
+ * {"loading": true} instead of this schema's {"state": "loading"}
+ * convention (InvalidCombinationSchema requires every value to be a
+ * string) — despite the prompt now spelling out the correct shape. Coerces
+ * that one specific, unambiguous confusion before validation rather than
+ * relying solely on the retry loop to talk the model out of it a second
+ * time. A `false` value carries no information for an "invalid
+ * combination" and is dropped rather than guessed at.
+ */
+function normalizeInvalidCombinations(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null || !Array.isArray((raw as { invalidCombinations?: unknown }).invalidCombinations)) {
+    return raw;
+  }
+  const spec = raw as { invalidCombinations: unknown[] };
+  const fixed = spec.invalidCombinations.map((combo) => {
+    if (typeof combo !== "object" || combo === null) return combo;
+    const next: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(combo as Record<string, unknown>)) {
+      if (typeof value === "boolean" && KNOWN_STATES.has(key)) {
+        if (value) next.state = key;
+        continue;
+      }
+      next[key] = value;
+    }
+    return next;
+  });
+  return { ...spec, invalidCombinations: fixed };
+}
+
+/**
+ * Step 2: draft a spec from the PRD + the human's interview answers. Always
+ * forced to status: "draft". `validTokenPaths` is this platform's real,
+ * flattened token vocabulary (see @ds-platform/core's flattenTokenPaths) —
+ * without it the model has no way to know this platform uses
+ * "color.action.*" (not "color.text.*"/"color.background.*") or
+ * "fontSize.sm/md/lg" (not "small"/"large"), and can only ever guess at a
+ * plausible-sounding path that doesn't actually resolve.
+ */
 export async function draftSpecFromAnswers(
   client: ModelClient,
   model: string,
   componentName: string,
   prdContext: string,
-  answers: Record<string, string>
+  answers: Record<string, string>,
+  validTokenPaths: string[]
 ): Promise<ComponentSpec> {
   const answersText = Object.entries(answers)
     .map(([id, answer]) => `Q(${id}): ${answer}`)
     .join("\n");
+  const tokensText = validTokenPaths.map((p) => `{${p}}`).join(", ");
 
   return callModel(client, model, {
     schema: ComponentSpecSchema,
@@ -72,13 +170,17 @@ export async function draftSpecFromAnswers(
     messages: [
       {
         role: "user",
-        content: `Component to spec: "${componentName}"\n\nPRD context:\n\n${prdContext}\n\nInterview answers:\n\n${answersText}`,
+        content: `Component to spec: "${componentName}"\n\nPRD context:\n\n${prdContext}\n\nInterview answers:\n\n${answersText}\n\nAvailable tokens (use ONLY these, exactly as written):\n${tokensText}`,
       },
     ],
     // A freshly-interviewed component is never allowed to claim "stable" —
     // forced before validation, not after, so a model that ignores the
     // instruction can't also trip the schema's stable-requires-a11y rule.
-    normalize: (raw) =>
-      typeof raw === "object" && raw !== null ? { ...raw, status: "draft" } : raw,
+    normalize: (raw) => {
+      const withFixedCombinations = normalizeInvalidCombinations(raw);
+      return typeof withFixedCombinations === "object" && withFixedCombinations !== null
+        ? { ...withFixedCombinations, status: "draft" }
+        : withFixedCombinations;
+    },
   });
 }

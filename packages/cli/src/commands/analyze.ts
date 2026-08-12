@@ -5,13 +5,16 @@ import {
   createGatewayClient,
   loadGatewayEnv,
   runGapAnalysis,
+  runDocQualityCheck,
   ModelOutputError,
   type GapReport,
   type ModelClient,
 } from "@ds-platform/agents";
+import { formatQuality } from "./doc-check.js";
 
 export interface AnalyzeOptions {
   cwd: string;
+  checkDocs?: boolean;
 }
 
 function loadAllSpecs(cwd: string): ComponentSpec[] {
@@ -70,10 +73,23 @@ export async function runAnalyze(
   try {
     const report = await runGapAnalysis(modelClient, env.model, prdText, specs);
     console.log(formatReport(report));
-    return true;
+
+    if (!options.checkDocs) return true;
+
+    let allAdequate = true;
+    for (const c of report.components) {
+      if (c.classification !== "have") continue;
+      const spec = specs.find((s) => s.id === c.id);
+      if (!spec) continue;
+
+      const quality = await runDocQualityCheck(modelClient, env.model, spec);
+      console.log(formatQuality(spec.id, spec.name, quality));
+      if (quality.rating !== "adequate") allAdequate = false;
+    }
+    return allAdequate;
   } catch (err) {
     if (err instanceof ModelOutputError) {
-      console.error(`gap analysis failed: ${err.message}`);
+      console.error(`analysis failed: ${err.message}`);
       return false;
     }
     throw err;

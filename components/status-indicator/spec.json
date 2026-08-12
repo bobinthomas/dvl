@@ -1,0 +1,163 @@
+{
+  "id": "status-indicator",
+  "name": "StatusIndicator",
+  "category": "feedback",
+  "status": "draft",
+  "version": "1.0.0",
+  "owner": "product team",
+  "description": "A standardized status indicator to provide visual cues for ongoing actions, such as saving, loading, or processing, to keep users informed about the progress of their requests.",
+  "anatomy": {
+    "root": "status-indicator",
+    "parts": [
+      {
+        "name": "icon",
+        "description": "The icon representing the status",
+        "optional": false
+      },
+      {
+        "name": "label",
+        "description": "The text label describing the status",
+        "optional": true
+      }
+    ]
+  },
+  "props": [
+    {
+      "name": "variant",
+      "type": "enum",
+      "description": "The variant of the status indicator",
+      "required": true,
+      "platforms": [
+        "react",
+        "react-native"
+      ],
+      "values": [
+        "primary",
+        "success",
+        "error",
+        "loading",
+        "warning"
+      ]
+    },
+    {
+      "name": "size",
+      "type": "enum",
+      "description": "The size of the status indicator",
+      "required": false,
+      "platforms": [
+        "react",
+        "react-native"
+      ],
+      "values": [
+        "small",
+        "medium",
+        "large"
+      ]
+    }
+  ],
+  "states": [
+    "default",
+    "loading"
+  ],
+  "invalidCombinations": [
+    {
+      "state": "loading",
+      "variant": "success"
+    },
+    {
+      "state": "loading",
+      "variant": "error"
+    }
+  ],
+  "tokens": [
+    {
+      "part": "icon",
+      "when": {},
+      "properties": {
+        "color": "{color.action.primary.default.bg}",
+        "size": "{fontSize.sm}"
+      }
+    },
+    {
+      "part": "label",
+      "when": {},
+      "properties": {
+        "color": "{color.brand.neutral.900}",
+        "fontSize": "{fontSize.sm}"
+      }
+    }
+  ],
+  "accessibility": {
+    "role": "status",
+    "keyboard": {},
+    "aria": [
+      {
+        "attribute": "aria-label",
+        "condition": "label is present"
+      }
+    ],
+    "contrast": [
+      {
+        "part": "icon",
+        "foreground": "{color.action.primary.default.bg}",
+        "background": "{color.brand.neutral.0}",
+        "minRatio": 4.5
+      },
+      {
+        "part": "label",
+        "foreground": "{color.brand.neutral.900}",
+        "background": "{color.brand.neutral.0}",
+        "minRatio": 4.5
+      }
+    ],
+    "requirements": []
+  },
+  "examples": [
+    {
+      "name": "Loading status indicator",
+      "description": "A status indicator showing a loading state",
+      "props": {
+        "variant": "loading",
+        "size": "medium"
+      },
+      "state": "loading"
+    },
+    {
+      "name": "Success status indicator",
+      "description": "A status indicator showing a success state",
+      "props": {
+        "variant": "success",
+        "size": "small"
+      },
+      "state": "default"
+    },
+    {
+      "name": "Primary status indicator",
+      "description": "A status indicator showing the primary state, large size",
+      "props": {
+        "variant": "primary",
+        "size": "large"
+      },
+      "state": "default"
+    },
+    {
+      "name": "Error status indicator",
+      "description": "A status indicator showing an error state",
+      "props": {
+        "variant": "error"
+      },
+      "state": "default"
+    },
+    {
+      "name": "Warning status indicator",
+      "description": "A status indicator showing a warning state",
+      "props": {
+        "variant": "warning"
+      },
+      "state": "default"
+    }
+  ],
+  "overrides": {
+    "imports": []
+  }
+}

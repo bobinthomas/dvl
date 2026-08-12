@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
@@ -10,10 +10,14 @@ import {
   ModelOutputError,
   type ModelClient,
 } from "@ds-platform/agents";
+import { buildPrdContextFromRequest, flattenTokenPaths, loadTokens, writeSpecFile, type ComponentRequest } from "@ds-platform/core";
+import { readRequest, writeRequest } from "./request.js";
 
 export interface NewOptions {
   cwd: string;
   prdPath?: string;
+  /** A component request id to promote (see `ds request verify`) — pre-seeds interview context instead of a raw PRD file. */
+  fromRequest?: string;
 }
 
 /** Asks one question, returns the human's answer. Injectable so runNew is testable without a real TTY. */
@@ -46,16 +50,37 @@ export async function runNew(
     return false;
   }
 
-  const specDir = join(cwd, "components", name);
-  const specPath = join(specDir, "spec.json");
+  const componentsDir = join(cwd, "components");
+  const specPath = join(componentsDir, name, "spec.json");
   if (existsSync(specPath)) {
     console.error(`components/${name}/spec.json already exists — ds new never overwrites an existing spec`);
     return false;
   }
 
-  const prdContext = options.prdPath
-    ? readFileSync(join(cwd, options.prdPath), "utf-8")
-    : "(no PRD provided — draft from the component name alone, and say so in the description)";
+  let request: ComponentRequest | undefined;
+  if (options.fromRequest) {
+    request = readRequest(cwd, options.fromRequest);
+    if (!request) {
+      console.error(`no request found for "${options.fromRequest}" at requests/${options.fromRequest}/request.json`);
+      return false;
+    }
+    if (request.id !== name) {
+      console.error(
+        `--from-request "${options.fromRequest}" has id "${request.id}", which must match the component name "${name}"`
+      );
+      return false;
+    }
+    if (request.status !== "ready-for-verification") {
+      console.error(`can only promote a request that's ready-for-verification (current status: "${request.status}")`);
+      return false;
+    }
+  }
+
+  const prdContext = request
+    ? buildPrdContextFromRequest(request)
+    : options.prdPath
+      ? readFileSync(join(cwd, options.prdPath), "utf-8")
+      : "(no PRD provided — draft from the component name alone, and say so in the description)";
 
   let env;
   try {
@@ -85,13 +110,19 @@ export async function runNew(
       answers[q.id] = await askFn(q.prompt);
     }
 
-    const spec = await draftSpecFromAnswers(modelClient, env.model, componentName, prdContext, answers);
+    const validTokenPaths = flattenTokenPaths(loadTokens(join(cwd, "tokens", "tokens.json")));
+    const spec = await draftSpecFromAnswers(modelClient, env.model, componentName, prdContext, answers, validTokenPaths);
 
-    mkdirSync(specDir, { recursive: true });
-    writeFileSync(specPath, JSON.stringify(spec, null, 2) + "\n", "utf-8");
+    writeSpecFile(componentsDir, spec);
 
     console.log(`\nDraft written to components/${name}/spec.json (status: draft).`);
     console.log(`It has not been validated — review it, then run \`ds validate ${name}\`.`);
+
+    if (request) {
+      writeRequest(cwd, { ...request, status: "promoted", promotedSpecId: name });
+      console.log(`requests/${request.id}/request.json promoted (status: promoted).`);
+    }
+
     return true;
   } catch (err) {
     if (err instanceof ModelOutputError) {

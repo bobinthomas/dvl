@@ -14,6 +14,7 @@
     { "path": "../generators/react-native" },
     { "path": "../generators/stories" },
     { "path": "../generators/tests" },
-    { "path": "../governance" }
+    { "path": "../governance" },
+    { "path": "../figma-client" }
   ]
 }

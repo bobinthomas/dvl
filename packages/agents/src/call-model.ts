@@ -38,6 +38,20 @@ export interface CallModelOptions<T> {
 const MAX_ATTEMPTS = 2;
 
 /**
+ * Strips a wrapping ```json ... ``` (or bare ``` ... ```) code fence, if
+ * present. Every prompt in this codebase asks for JSON only, no fences —
+ * but some models, especially non-Gateway providers without strict
+ * structured-output enforcement (see direct-client.ts), wrap the response
+ * in a markdown fence out of habit regardless. The payload itself is
+ * usually perfectly valid JSON; only the fence trips up a bare `JSON.parse`.
+ */
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced ? fenced[1]!.trim() : trimmed;
+}
+
+/**
  * The one place every agent calls into the gateway. Structured output via
  * `response_format.json_schema`, then parsed and validated against the same
  * Zod schema before anything downstream sees it. A model returning
@@ -78,7 +92,7 @@ export async function callModel<T>(
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse(stripCodeFence(raw));
     } catch (err) {
       lastIssue = `response was not valid JSON: ${(err as Error).message}`;
       continue;

@@ -1,0 +1,17 @@
+/**
+ * GENERATED FILE. Do not edit by hand — your changes will be silently
+ * overwritten. Source: components/status-indicator/spec.json (version 1.0.0).
+ * Regenerate with `ds build status-indicator`. Behaviour that can't be
+ * expressed here belongs in overrides/status-indicator/.
+ */
+@import "./tokens.css";
+
+.ds-status-indicator [data-part="icon"] {
+  color: var(--color-action-primary-default-bg);
+  size: var(--font-size-sm);
+}
+
+.ds-status-indicator [data-part="label"] {
+  color: var(--color-brand-neutral-900);
+  font-size: var(--font-size-sm);
+}

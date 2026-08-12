@@ -29,6 +29,30 @@ describe("callModel", () => {
     expect(client.complete).toHaveBeenCalledTimes(1);
   });
 
+  it("strips a ```json ... ``` code fence some models wrap responses in, without needing a retry", async () => {
+    const client = fakeClient(["```json\n" + JSON.stringify({ greeting: "hi" }) + "\n```"]);
+    const result = await callModel(client, "test/model", {
+      schema,
+      schemaName: "greeting",
+      system: "sys",
+      messages: [{ role: "user", content: "hello" }],
+    });
+    expect(result).toEqual({ greeting: "hi" });
+    expect(client.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("strips a bare ``` fence with no language tag", async () => {
+    const client = fakeClient(["```\n" + JSON.stringify({ greeting: "hi" }) + "\n```"]);
+    const result = await callModel(client, "test/model", {
+      schema,
+      schemaName: "greeting",
+      system: "sys",
+      messages: [{ role: "user", content: "hello" }],
+    });
+    expect(result).toEqual({ greeting: "hi" });
+    expect(client.complete).toHaveBeenCalledTimes(1);
+  });
+
   it("retries once on malformed JSON and succeeds on the second attempt", async () => {
     const client = fakeClient(["not json at all", JSON.stringify({ greeting: "hi" })]);
     const result = await callModel(client, "test/model", {
