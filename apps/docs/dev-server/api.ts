@@ -299,17 +299,58 @@ function handleApprove(ctx: DevApiContext, res: ServerResponse, id: string): voi
 function handleBrief(ctx: DevApiContext, res: ServerResponse, id: string): void {
   const request = readRequestOr404(ctx, res, id);
   if (!request) return;
-  if (request.status !== "approved") {
+  if (request.status !== "approved" && request.status !== "in-design") {
     sendJson(res, 409, {
       ok: false,
-      errors: [`can only generate a brief for an approved request (current status: "${request.status}")`],
+      errors: [`can only generate a brief for an approved or in-design request (current status: "${request.status}")`],
     });
     return;
   }
   const brief = buildDesignBrief(request);
   writeFileSync(join(ctx.requestsDir, id, "BRIEF.md"), brief, "utf-8");
-  writeRequestFile(ctx.requestsDir, { ...request, status: "in-design" });
+  // Already in-design (regenerating after an edit) stays in-design — this
+  // route only ever moves a request forward on its first run, never back.
+  const nextStatus = request.status === "approved" ? "in-design" : request.status;
+  writeRequestFile(ctx.requestsDir, { ...request, status: nextStatus });
   sendJson(res, 200, { ok: true, brief });
+}
+
+/**
+ * Lets a not-yet-promoted request's editable fields be revised after
+ * filing — the brief is a pure function of these (buildDesignBrief), so
+ * editing here and re-running "Generate brief" is how you change what the
+ * brief says, rather than editing brief prose directly.
+ */
+async function handleEditRequest(ctx: DevApiContext, req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
+  const request = readRequestOr404(ctx, res, id);
+  if (!request) return;
+  if (request.status === "promoted" || request.status === "rejected") {
+    sendJson(res, 409, { ok: false, errors: [`cannot edit a request that's already ${request.status}`] });
+    return;
+  }
+
+  const body = await parseJsonBody<{
+    category?: string;
+    problem?: string;
+    notes?: string;
+    expectedVariants?: string[];
+  }>(req);
+
+  const candidate = {
+    ...request,
+    category: body.category ?? request.category,
+    problem: body.problem ?? request.problem,
+    notes: body.notes?.trim() ? body.notes : undefined,
+    expectedVariants: body.expectedVariants ?? request.expectedVariants,
+  };
+  const result = ComponentRequestSchema.safeParse(candidate);
+  if (!result.success) {
+    sendJson(res, 400, { ok: false, errors: result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) });
+    return;
+  }
+
+  writeRequestFile(ctx.requestsDir, result.data);
+  sendJson(res, 200, { ok: true });
 }
 
 /** `ds request set-figma-file` + `ds request verify`, combined into one round trip. */
@@ -748,6 +789,8 @@ export async function handleDevApi(ctx: DevApiContext, req: IncomingMessage, res
     if (parts.length === 1 && parts[0] === "requests") return await handleRequestNew(ctx, req, res);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "approve") return handleApprove(ctx, res, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "brief") return handleBrief(ctx, res, parts[1]);
+    if (parts.length === 3 && parts[0] === "requests" && parts[2] === "edit")
+      return await handleEditRequest(ctx, req, res, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "verify")
       return await handleVerify(ctx, req, res, parts[1]);
     if (parts.length === 4 && parts[0] === "requests" && parts[2] === "promote" && parts[3] === "questions")

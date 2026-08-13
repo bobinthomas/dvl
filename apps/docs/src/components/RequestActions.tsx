@@ -2,6 +2,7 @@ import * as React from "react";
 import type { ComponentRequest } from "@ds-platform/core/request-schema";
 import { PromoteForm } from "./PromoteForm.js";
 import { SendToFigma } from "./SendToFigma.js";
+import { EditRequestForm } from "./EditRequestForm.js";
 import { useSimulation } from "../simulationContext.js";
 import { useProviderSettings } from "../providerContext.js";
 
@@ -74,8 +75,12 @@ export function RequestActions({
     window.location.reload();
   }
 
+  const editable = request.status !== "promoted" && request.status !== "rejected";
+
+  let primary: React.ReactNode = null;
+
   if (request.status === "pending") {
-    return (
+    primary = (
       <div>
         <button
           type="button"
@@ -88,10 +93,8 @@ export function RequestActions({
         <ErrorList errors={errors} />
       </div>
     );
-  }
-
-  if (request.status === "approved") {
-    return (
+  } else if (request.status === "approved") {
+    primary = (
       <div>
         <button
           type="button"
@@ -105,11 +108,17 @@ export function RequestActions({
         <SendToFigma request={request} />
       </div>
     );
-  }
-
-  if (request.status === "in-design") {
-    return (
+  } else if (request.status === "in-design") {
+    primary = (
       <div className="request-actions__verify">
+        <button
+          type="button"
+          className="ask-widget__submit"
+          disabled={status === "loading"}
+          onClick={() => runSimpleAction(`/api/dev/requests/${request.id}/brief`)}
+        >
+          {status === "loading" ? "Generating…" : "Regenerate brief"}
+        </button>
         <input
           type="text"
           value={figmaFileKey}
@@ -155,14 +164,10 @@ export function RequestActions({
         <SendToFigma request={request} />
       </div>
     );
-  }
-
-  if (request.status === "ready-for-verification") {
-    return <PromoteForm requestId={request.id} onViewComponent={onViewComponent} />;
-  }
-
-  if (request.status === "promoted" && request.promotedSpecId && onViewComponent) {
-    return (
+  } else if (request.status === "ready-for-verification") {
+    primary = <PromoteForm requestId={request.id} onViewComponent={onViewComponent} />;
+  } else if (request.status === "promoted" && request.promotedSpecId && onViewComponent) {
+    primary = (
       <button
         type="button"
         className="ask-widget__submit"
@@ -173,5 +178,10 @@ export function RequestActions({
     );
   }
 
-  return null;
+  return (
+    <div>
+      {primary}
+      {editable && <EditRequestForm request={request} />}
+    </div>
+  );
 }

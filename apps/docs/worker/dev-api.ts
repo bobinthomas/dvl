@@ -211,15 +211,60 @@ async function handleApprove(env: DevApiEnv, id: string): Promise<Response> {
 async function handleBrief(env: DevApiEnv, id: string): Promise<Response> {
   const found = await requestOr404(env, id);
   if (found instanceof Response) return found;
-  if (found.request.status !== "approved") {
+  if (found.request.status !== "approved" && found.request.status !== "in-design") {
     return json(
-      { ok: false, errors: [`can only generate a brief for an approved request (current status: "${found.request.status}")`] },
+      {
+        ok: false,
+        errors: [`can only generate a brief for an approved or in-design request (current status: "${found.request.status}")`],
+      },
       409
     );
   }
   const brief = buildDesignBrief(found.request);
-  await putRequest(env.DB, { ...found.request, status: "in-design" }, brief);
+  // Already in-design (regenerating after an edit) stays in-design — this
+  // route only ever moves a request forward on its first run, never back.
+  const nextStatus = found.request.status === "approved" ? "in-design" : found.request.status;
+  await putRequest(env.DB, { ...found.request, status: nextStatus }, brief);
   return json({ ok: true, brief });
+}
+
+/**
+ * Lets a not-yet-promoted request's editable fields be revised after
+ * filing — the brief is a pure function of these (buildDesignBrief), so
+ * editing here and re-running "Generate brief" is how you change what the
+ * brief says, rather than editing brief prose directly (see
+ * request-schema.ts's buildDesignBrief doc comment). `id`/`name`/`category`
+ * kebab/Pascal identity and everything status-machine-related stay fixed;
+ * only content fields are editable.
+ */
+async function handleEditRequest(env: DevApiEnv, request: Request, id: string): Promise<Response> {
+  const found = await requestOr404(env, id);
+  if (found instanceof Response) return found;
+  if (found.request.status === "promoted" || found.request.status === "rejected") {
+    return json({ ok: false, errors: [`cannot edit a request that's already ${found.request.status}`] }, 409);
+  }
+
+  const body = await parseJsonBody<{
+    category?: string;
+    problem?: string;
+    notes?: string;
+    expectedVariants?: string[];
+  }>(request);
+
+  const candidate = {
+    ...found.request,
+    category: body.category ?? found.request.category,
+    problem: body.problem ?? found.request.problem,
+    notes: body.notes?.trim() ? body.notes : undefined,
+    expectedVariants: body.expectedVariants ?? found.request.expectedVariants,
+  };
+  const result = ComponentRequestSchema.safeParse(candidate);
+  if (!result.success) {
+    return json({ ok: false, errors: result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) }, 400);
+  }
+
+  await putRequest(env.DB, result.data, found.brief);
+  return json({ ok: true });
 }
 
 async function handleVerify(env: DevApiEnv, request: Request, id: string): Promise<Response> {
@@ -557,6 +602,8 @@ export async function handleDevApi(env: DevApiEnv, request: Request, pathname: s
     if (parts.length === 1 && parts[0] === "requests") return await handleRequestNew(env, request);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "approve") return await handleApprove(env, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "brief") return await handleBrief(env, parts[1]);
+    if (parts.length === 3 && parts[0] === "requests" && parts[2] === "edit")
+      return await handleEditRequest(env, request, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "verify") return await handleVerify(env, request, parts[1]);
     if (parts.length === 4 && parts[0] === "requests" && parts[2] === "promote" && parts[3] === "questions")
       return await handlePromoteQuestions(env, request, parts[1]);
