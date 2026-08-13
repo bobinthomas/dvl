@@ -5,6 +5,7 @@ import { SendToFigma } from "./SendToFigma.js";
 import { EditRequestForm } from "./EditRequestForm.js";
 import { useSimulation } from "../simulationContext.js";
 import { useProviderSettings } from "../providerContext.js";
+import { safeConfirm } from "../safeConfirm.js";
 
 type Status = "idle" | "loading" | "error";
 
@@ -115,7 +116,10 @@ export function RequestActions({
           type="button"
           className="ask-widget__submit"
           disabled={status === "loading"}
-          onClick={() => runSimpleAction(`/api/dev/requests/${request.id}/brief`)}
+          onClick={() => {
+            if (!safeConfirm("This will overwrite the current brief, including any manual edits. Continue?")) return;
+            runSimpleAction(`/api/dev/requests/${request.id}/brief`);
+          }}
         >
           {status === "loading" ? "Generating…" : "Regenerate brief"}
         </button>

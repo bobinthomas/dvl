@@ -13,26 +13,75 @@ const STATUS_ORDER: ComponentRequestStatus[] = [
   "rejected",
 ];
 
-function DesignBrief({ brief }: { brief: string }) {
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+/**
+ * The brief's actual prose, directly editable — a plain textarea saved
+ * verbatim via /brief/save, no template involved. Doesn't reload the page
+ * on save (unlike every other mutating action here): there's no derived
+ * state elsewhere on the page that depends on the brief text, and reloading
+ * mid-edit of a long textarea would just be disruptive.
+ */
+function DesignBrief({ requestId, brief }: { requestId: string; brief: string }) {
+  const [text, setText] = React.useState(brief);
   const [copied, setCopied] = React.useState(false);
+  const [saveStatus, setSaveStatus] = React.useState<SaveStatus>("idle");
+  const [errors, setErrors] = React.useState<string[]>([]);
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(brief);
+    await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
 
+  async function handleSave() {
+    setSaveStatus("saving");
+    setErrors([]);
+    try {
+      const res = await fetch(`/api/dev/requests/${requestId}/brief/save`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ brief: text }),
+      });
+      const data = (await res.json().catch(() => null)) as { ok: boolean; errors?: string[] } | null;
+      if (!res.ok || !data?.ok) {
+        setErrors(data?.errors ?? [`request failed (${res.status})`]);
+        setSaveStatus("error");
+        return;
+      }
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 1500);
+    } catch {
+      setErrors(["Saving a brief only works while running `pnpm dev` locally."]);
+      setSaveStatus("error");
+    }
+  }
+
+  const dirty = text !== brief;
+
   return (
-    <details>
+    <details open>
       <summary>Design brief</summary>
       <div className="code-tabs__nav">
         <button type="button" className="copy-button" onClick={handleCopy}>
           {copied ? "Copied" : "Copy"}
         </button>
+        <button type="button" className="copy-button" onClick={handleSave} disabled={!dirty || saveStatus === "saving"}>
+          {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : "Save"}
+        </button>
       </div>
-      <pre className="code-block" style={{ whiteSpace: "pre-wrap" }}>
-        {brief}
-      </pre>
+      <textarea
+        className="code-block"
+        style={{ whiteSpace: "pre-wrap", width: "100%", minHeight: "16rem" }}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      {saveStatus === "error" &&
+        errors.map((err) => (
+          <p key={err} className="ask-widget__answer ask-widget__answer--refused">
+            {err}
+          </p>
+        ))}
     </details>
   );
 }
@@ -48,7 +97,7 @@ function RequestRow({ entry, onViewComponent }: { entry: RequestEntry; onViewCom
       </td>
       <td>
         {request.problem}
-        {brief && <DesignBrief brief={brief} />}
+        {brief && <DesignBrief requestId={request.id} brief={brief} />}
       </td>
       <td>
         {request.expectedVariants.length > 0

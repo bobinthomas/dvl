@@ -317,9 +317,8 @@ function handleBrief(ctx: DevApiContext, res: ServerResponse, id: string): void 
 
 /**
  * Lets a not-yet-promoted request's editable fields be revised after
- * filing — the brief is a pure function of these (buildDesignBrief), so
- * editing here and re-running "Generate brief" is how you change what the
- * brief says, rather than editing brief prose directly.
+ * filing. This changes the *inputs* buildDesignBrief renders from — for
+ * editing the brief's actual prose directly, see handleSaveBrief below.
  */
 async function handleEditRequest(ctx: DevApiContext, req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
   const request = readRequestOr404(ctx, res, id);
@@ -350,6 +349,30 @@ async function handleEditRequest(ctx: DevApiContext, req: IncomingMessage, res: 
   }
 
   writeRequestFile(ctx.requestsDir, result.data);
+  sendJson(res, 200, { ok: true });
+}
+
+/**
+ * Saves hand-edited brief text verbatim — no template involved, unlike
+ * handleBrief. Only once a brief exists at all (in-design): editing before
+ * that point has nothing to edit yet.
+ */
+async function handleSaveBrief(ctx: DevApiContext, req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
+  const request = readRequestOr404(ctx, res, id);
+  if (!request) return;
+  if (request.status !== "in-design") {
+    sendJson(res, 409, {
+      ok: false,
+      errors: [`can only save brief edits for an in-design request (current status: "${request.status}")`],
+    });
+    return;
+  }
+  const { brief } = await parseJsonBody<{ brief?: string }>(req);
+  if (!brief?.trim()) {
+    sendJson(res, 400, { ok: false, errors: ["brief text is required"] });
+    return;
+  }
+  writeFileSync(join(ctx.requestsDir, id, "BRIEF.md"), brief, "utf-8");
   sendJson(res, 200, { ok: true });
 }
 
@@ -789,6 +812,8 @@ export async function handleDevApi(ctx: DevApiContext, req: IncomingMessage, res
     if (parts.length === 1 && parts[0] === "requests") return await handleRequestNew(ctx, req, res);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "approve") return handleApprove(ctx, res, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "brief") return handleBrief(ctx, res, parts[1]);
+    if (parts.length === 4 && parts[0] === "requests" && parts[2] === "brief" && parts[3] === "save")
+      return await handleSaveBrief(ctx, req, res, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "edit")
       return await handleEditRequest(ctx, req, res, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "verify")

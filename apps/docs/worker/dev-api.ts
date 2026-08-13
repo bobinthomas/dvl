@@ -230,12 +230,10 @@ async function handleBrief(env: DevApiEnv, id: string): Promise<Response> {
 
 /**
  * Lets a not-yet-promoted request's editable fields be revised after
- * filing — the brief is a pure function of these (buildDesignBrief), so
- * editing here and re-running "Generate brief" is how you change what the
- * brief says, rather than editing brief prose directly (see
- * request-schema.ts's buildDesignBrief doc comment). `id`/`name`/`category`
- * kebab/Pascal identity and everything status-machine-related stay fixed;
- * only content fields are editable.
+ * filing. This changes the *inputs* buildDesignBrief renders from — for
+ * editing the brief's actual prose directly, see handleSaveBrief below.
+ * `id`/`name`/`category` kebab/Pascal identity and everything
+ * status-machine-related stay fixed; only content fields are editable.
  */
 async function handleEditRequest(env: DevApiEnv, request: Request, id: string): Promise<Response> {
   const found = await requestOr404(env, id);
@@ -264,6 +262,28 @@ async function handleEditRequest(env: DevApiEnv, request: Request, id: string): 
   }
 
   await putRequest(env.DB, result.data, found.brief);
+  return json({ ok: true });
+}
+
+/**
+ * Saves hand-edited brief text verbatim — no template involved, unlike
+ * handleBrief. Only once a brief exists at all (in-design): editing before
+ * that point has nothing to edit yet.
+ */
+async function handleSaveBrief(env: DevApiEnv, request: Request, id: string): Promise<Response> {
+  const found = await requestOr404(env, id);
+  if (found instanceof Response) return found;
+  if (found.request.status !== "in-design") {
+    return json(
+      { ok: false, errors: [`can only save brief edits for an in-design request (current status: "${found.request.status}")`] },
+      409
+    );
+  }
+  const { brief } = await parseJsonBody<{ brief?: string }>(request);
+  if (!brief?.trim()) {
+    return json({ ok: false, errors: ["brief text is required"] }, 400);
+  }
+  await putRequest(env.DB, found.request, brief);
   return json({ ok: true });
 }
 
@@ -602,6 +622,8 @@ export async function handleDevApi(env: DevApiEnv, request: Request, pathname: s
     if (parts.length === 1 && parts[0] === "requests") return await handleRequestNew(env, request);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "approve") return await handleApprove(env, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "brief") return await handleBrief(env, parts[1]);
+    if (parts.length === 4 && parts[0] === "requests" && parts[2] === "brief" && parts[3] === "save")
+      return await handleSaveBrief(env, request, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "edit")
       return await handleEditRequest(env, request, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "verify") return await handleVerify(env, request, parts[1]);
