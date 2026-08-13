@@ -1,0 +1,17 @@
+{
+  "name": "Design System Builder",
+  "id": "ds-platform-figma-plugin",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "src/ui.html",
+  "editorType": ["figma"],
+  "enablePrivatePluginApi": true,
+  "networkAccess": {
+    "allowedDomains": [
+      "https://ds-platform-docs.bobinthomas.workers.dev",
+      "https://ds-platform-docs-preview.bobinthomas.workers.dev"
+    ],
+    "devAllowedDomains": ["http://localhost:8787", "http://localhost:5173"],
+    "reasoning": "Fetches pending build jobs (a ComponentSpec) from the design system platform's backend and posts back the built ComponentSet's fileKey/nodeId so the request can be auto-verified."
+  }
+}

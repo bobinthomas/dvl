@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { ComponentRequest } from "@ds-platform/core/request-schema";
 import { PromoteForm } from "./PromoteForm.js";
+import { SendToFigma } from "./SendToFigma.js";
 import { useSimulation } from "../simulationContext.js";
 import { useProviderSettings } from "../providerContext.js";
 
@@ -101,6 +102,7 @@ export function RequestActions({
           {status === "loading" ? "Generating…" : "Generate brief"}
         </button>
         <ErrorList errors={errors} />
+        <SendToFigma request={request} />
       </div>
     );
   }
@@ -150,6 +152,7 @@ export function RequestActions({
             ))}
           </div>
         )}
+        <SendToFigma request={request} />
       </div>
     );
   }

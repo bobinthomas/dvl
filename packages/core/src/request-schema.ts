@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CategorySchema } from "./schema.js";
+import { CategorySchema, ComponentSpecSchema, type ComponentSpec } from "./schema.js";
 
 const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const PASCAL_CASE = /^[A-Z][a-zA-Z0-9]*$/;
@@ -135,4 +135,72 @@ export function buildPrdContextFromRequest(request: ComponentRequest): string {
   }Expected variants: ${
     request.expectedVariants.length > 0 ? request.expectedVariants.join(", ") : "(none specified)"
   }`;
+}
+
+/**
+ * Synthesizes a small, ungoverned `ComponentSpec` from a bare request — the
+ * payload for a Figma build job (see apps/docs/worker/dev-api.ts's
+ * /api/figma/jobs routes), never written to components/*​/spec.json. A real
+ * spec only exists after promote, which happens *after*
+ * ready-for-verification; "Send to Figma" needs to work on an
+ * approved/in-design request, before that — this fills the gap with
+ * something the Figma plugin's spec-agnostic construction logic
+ * (@ds-platform/figma-plugin) can build from: one enum prop carrying the
+ * request's expected variants, and one real, always-valid token binding on
+ * "root" so the built component actually has a bound Figma Variable.
+ * That last part isn't optional — reconcileRequest's `ok` requires at
+ * least one bound variable somewhere under the matched node (see
+ * packages/figma-client/src/reconcile.ts's hasAnyBoundVariable), so an
+ * empty tokens: [] would make every real verify attempt fail by
+ * construction, not just look incomplete.
+ */
+export function draftJobSpec(request: ComponentRequest): ComponentSpec {
+  const variants = request.expectedVariants.length > 0 ? request.expectedVariants : ["default"];
+
+  return ComponentSpecSchema.parse({
+    id: request.id,
+    name: request.name,
+    category: request.category,
+    status: "draft",
+    version: "0.1.0",
+    owner: "@ds-lead",
+    description: `(Figma job draft — not a governed spec) ${request.problem}`,
+    anatomy: {
+      root: "div element",
+      parts: [{ name: "label", description: `${request.name}'s content.`, optional: false }],
+    },
+    props: [
+      {
+        name: "variant",
+        type: "enum",
+        description: "Visual variant.",
+        required: false,
+        platforms: ["react", "react-native"],
+        values: variants,
+      },
+    ],
+    states: ["default"],
+    invalidCombinations: [],
+    tokens: [
+      {
+        part: "root",
+        when: {},
+        properties: {
+          backgroundColor: "{color.action.primary.default.bg}",
+          borderRadius: "{radius.md}",
+          paddingBlock: "{spacing.sm}",
+          paddingInline: "{spacing.md}",
+        },
+      },
+    ],
+    accessibility: {
+      role: "group",
+      keyboard: {},
+      aria: [],
+      contrast: [],
+      requirements: ["(Figma job draft) add real accessibility requirements before promoting."],
+    },
+    examples: variants.map((v) => ({ name: v, props: { variant: v }, state: "default" })),
+    overrides: { imports: [] },
+  });
 }

@@ -22,16 +22,72 @@ describe("StatusIndicator conformance (web)", () => {
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
 
-  it("contrast for \"icon\" (foreground {color.action.primary.default.bg}) meets 4.5:1", () => {
-    const fg = resolveToken("{color.action.primary.default.bg}", tokens);
-    const bg = resolveToken("{color.brand.neutral.0}", tokens);
+  it("contrast for \"icon\" (foreground {color.status.primary.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.primary.fg}", tokens);
+    const bg = resolveToken("{color.status.primary.bg}", tokens);
     const ratio = contrastRatio(String(fg.value), String(bg.value));
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("contrast for \"label\" (foreground {color.brand.neutral.900}) meets 4.5:1", () => {
-    const fg = resolveToken("{color.brand.neutral.900}", tokens);
-    const bg = resolveToken("{color.brand.neutral.0}", tokens);
+  it("contrast for \"icon\" (foreground {color.status.success.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.success.fg}", tokens);
+    const bg = resolveToken("{color.status.success.bg}", tokens);
+    const ratio = contrastRatio(String(fg.value), String(bg.value));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("contrast for \"icon\" (foreground {color.status.error.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.error.fg}", tokens);
+    const bg = resolveToken("{color.status.error.bg}", tokens);
+    const ratio = contrastRatio(String(fg.value), String(bg.value));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("contrast for \"icon\" (foreground {color.status.warning.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.warning.fg}", tokens);
+    const bg = resolveToken("{color.status.warning.bg}", tokens);
+    const ratio = contrastRatio(String(fg.value), String(bg.value));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("contrast for \"icon\" (foreground {color.status.loading.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.loading.fg}", tokens);
+    const bg = resolveToken("{color.status.loading.bg}", tokens);
+    const ratio = contrastRatio(String(fg.value), String(bg.value));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("contrast for \"label\" (foreground {color.status.primary.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.primary.fg}", tokens);
+    const bg = resolveToken("{color.status.primary.bg}", tokens);
+    const ratio = contrastRatio(String(fg.value), String(bg.value));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("contrast for \"label\" (foreground {color.status.success.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.success.fg}", tokens);
+    const bg = resolveToken("{color.status.success.bg}", tokens);
+    const ratio = contrastRatio(String(fg.value), String(bg.value));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("contrast for \"label\" (foreground {color.status.error.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.error.fg}", tokens);
+    const bg = resolveToken("{color.status.error.bg}", tokens);
+    const ratio = contrastRatio(String(fg.value), String(bg.value));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("contrast for \"label\" (foreground {color.status.warning.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.warning.fg}", tokens);
+    const bg = resolveToken("{color.status.warning.bg}", tokens);
+    const ratio = contrastRatio(String(fg.value), String(bg.value));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("contrast for \"label\" (foreground {color.status.loading.fg}) meets 4.5:1", () => {
+    const fg = resolveToken("{color.status.loading.fg}", tokens);
+    const bg = resolveToken("{color.status.loading.bg}", tokens);
     const ratio = contrastRatio(String(fg.value), String(bg.value));
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });

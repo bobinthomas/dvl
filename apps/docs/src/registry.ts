@@ -2,11 +2,14 @@ import * as React from "react";
 import type { ComponentType } from "react";
 import { ComponentSpecSchema, type ComponentSpec } from "@ds-platform/core/schema";
 import { compileComponent } from "./compileComponent.js";
+import { fetchJsonWithRetry } from "./fetchJsonWithRetry.js";
 
 export interface ComponentEntry {
   spec: ComponentSpec;
   /** The real generated component, compiled from generator-react's actual output — never a mock. */
   Component: ComponentType<Record<string, unknown>>;
+  /** The component's actual generated CSS, so the preview looks like the real thing rather than unstyled markup. */
+  reactCss?: string;
   /** Raw CHANGELOG.md text for this component, if `ds` has generated one yet (Phase 6). */
   changelog?: string;
 }
@@ -54,19 +57,18 @@ export function useRegistry(): RegistryState {
     let cancelled = false;
 
     async function load() {
-      const res = await fetch("/api/dev/components/list", { method: "POST" });
-      const data = (await res.json().catch(() => null)) as ListResponse | null;
-      if (!data?.ok || !data.components) {
-        throw new Error(data?.errors?.join("; ") ?? "failed to load components");
+      const data = await fetchJsonWithRetry<ListResponse>("/api/dev/components/list");
+      if (!data.components) {
+        throw new Error(data.errors?.join("; ") ?? "failed to load components");
       }
 
-      const loaded = data.components.map(({ spec: rawSpec, changelog, reactTsx }): ComponentEntry | undefined => {
+      const loaded = data.components.map(({ spec: rawSpec, changelog, reactTsx, reactCss }): ComponentEntry | undefined => {
         const spec = ComponentSpecSchema.parse(rawSpec);
         if (!reactTsx) return undefined;
         try {
           const Component = compileComponent(reactTsx, spec.name);
           if (!Component) return undefined;
-          return { spec, Component, changelog };
+          return { spec, Component, changelog, reactCss };
         } catch {
           // Not built yet, or the last build failed — same "leave it out
           // rather than show it broken" posture the old glob version had.

@@ -118,8 +118,87 @@ export async function clearGenerated(db: D1Database): Promise<{ removedRequests:
   const stmts = [
     ...removedRequests.map((id) => db.prepare("DELETE FROM requests WHERE id = ?").bind(id)),
     ...removedComponents.map((id) => db.prepare("DELETE FROM components WHERE id = ?").bind(id)),
+    ...removedRequests.map((id) => db.prepare("DELETE FROM figma_jobs WHERE request_id = ?").bind(id)),
   ];
   if (stmts.length > 0) await db.batch(stmts);
 
   return { removedRequests, removedComponents };
+}
+
+export type FigmaJobStatus = "pending" | "claimed" | "done" | "failed";
+
+export interface FigmaJob {
+  id: string;
+  requestId: string;
+  spec: ComponentSpec;
+  targetFileKey?: string;
+  status: FigmaJobStatus;
+  result?: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface FigmaJobRow {
+  id: string;
+  request_id: string;
+  spec_json: string;
+  target_file_key: string | null;
+  status: string;
+  result_json: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function rowToFigmaJob(row: FigmaJobRow): FigmaJob {
+  return {
+    id: row.id,
+    requestId: row.request_id,
+    spec: JSON.parse(row.spec_json) as ComponentSpec,
+    targetFileKey: row.target_file_key ?? undefined,
+    status: row.status as FigmaJobStatus,
+    result: row.result_json ? JSON.parse(row.result_json) : undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function createFigmaJob(
+  db: D1Database,
+  params: { id: string; requestId: string; spec: ComponentSpec; targetFileKey?: string }
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO figma_jobs (id, request_id, spec_json, target_file_key, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'pending', ?, ?)`
+    )
+    .bind(params.id, params.requestId, JSON.stringify(params.spec), params.targetFileKey ?? null, now, now)
+    .run();
+}
+
+export async function listPendingFigmaJobs(db: D1Database): Promise<FigmaJob[]> {
+  const { results } = await db
+    .prepare("SELECT * FROM figma_jobs WHERE status = 'pending' ORDER BY created_at")
+    .all<FigmaJobRow>();
+  return results.map(rowToFigmaJob);
+}
+
+export async function getFigmaJob(db: D1Database, id: string): Promise<FigmaJob | undefined> {
+  const row = await db.prepare("SELECT * FROM figma_jobs WHERE id = ?").bind(id).first<FigmaJobRow>();
+  return row ? rowToFigmaJob(row) : undefined;
+}
+
+/** Flips a pending job to claimed — a no-op if it's already past that (idempotent for a second GET). */
+export async function claimFigmaJob(db: D1Database, id: string): Promise<void> {
+  await db
+    .prepare("UPDATE figma_jobs SET status = 'claimed', updated_at = ? WHERE id = ? AND status = 'pending'")
+    .bind(new Date().toISOString(), id)
+    .run();
+}
+
+export async function completeFigmaJob(db: D1Database, id: string, status: "done" | "failed", result: unknown): Promise<void> {
+  await db
+    .prepare("UPDATE figma_jobs SET status = ?, result_json = ?, updated_at = ? WHERE id = ?")
+    .bind(status, JSON.stringify(result), new Date().toISOString(), id)
+    .run();
 }

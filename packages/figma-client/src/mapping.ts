@@ -1,9 +1,9 @@
 /**
- * Mirror image of packages/generators/figma/src/variables.ts's one-directional
+ * Mirror image of packages/figma-plugin/src/variables.ts's one-directional
  * token-ref -> Figma-variable conversions. Reuses the exact same naming
- * convention (`.` <-> `/`) that generator already established, so a value
+ * convention (`.` <-> `/`) that plugin already established, so a value
  * read back from Figma can be compared against what the platform would have
- * generated for the same token ref.
+ * built for the same token ref.
  */
 
 /** "color/action/primary/default/bg" -> "{color.action.primary.default.bg}" */

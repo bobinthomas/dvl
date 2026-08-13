@@ -34,7 +34,18 @@ export interface ModelClient {
  * Groq/OpenRouter/Kimi key directly instead of the Gateway.
  */
 export function createGatewayClient(env: GatewayEnv): ModelClient {
-  const client = new OpenAI({ baseURL: gatewayBaseUrl(env), apiKey: env.apiToken });
+  // gateway.ai.cloudflare.com authenticates an "Authenticated Gateway" via
+  // the cf-aig-authorization header, not the standard Authorization header
+  // the OpenAI SDK sends for its `apiKey` — see
+  // https://developers.cloudflare.com/ai-gateway/configuration/authentication/.
+  // apiKey is kept too: harmless (and required by the SDK's types), and
+  // covers a gateway with Authenticated Gateway left off, where the
+  // standard header is simply ignored rather than rejected.
+  const client = new OpenAI({
+    baseURL: gatewayBaseUrl(env),
+    apiKey: env.apiToken,
+    defaultHeaders: { "cf-aig-authorization": `Bearer ${env.apiToken}` },
+  });
 
   return {
     async complete({ model, messages, schemaName, jsonSchema }) {
@@ -50,7 +61,32 @@ export function createGatewayClient(env: GatewayEnv): ModelClient {
       if (!content) {
         throw new Error(`gateway returned no content for model "${model}"`);
       }
-      return content;
+      return coerceMessageContent(content);
     },
   };
+}
+
+/**
+ * The OpenAI SDK's own types say `message.content` is always a plain
+ * string, but that's an assumption about OpenAI's own wire format —
+ * Cloudflare AI Gateway's compat layer, fronting a Workers AI model, isn't
+ * guaranteed to match it exactly for every model/response-format
+ * combination. Confirmed live: content coming back as something callModel's
+ * `.trim()` (see call-model.ts's stripCodeFence) can't call directly —
+ * either an array of content parts (a shape some OpenAI-compatible APIs use
+ * for multi-part messages) or, if the gateway already parsed the
+ * json_schema response itself, a plain object. Both are coerced back to the
+ * JSON string callModel expects; anything else is stringified as a
+ * last resort rather than thrown, since a malformed string still fails
+ * schema validation with a clear message instead of crashing here.
+ */
+function coerceMessageContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (typeof part === "string" ? part : ((part as { text?: string })?.text ?? "")))
+      .join("");
+  }
+  if (typeof content === "object") return JSON.stringify(content);
+  return String(content);
 }

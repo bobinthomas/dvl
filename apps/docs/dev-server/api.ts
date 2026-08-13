@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { spawn } from "node:child_process";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -8,6 +8,7 @@ import {
   buildComponentRequest,
   buildDesignBrief,
   buildPrdContextFromRequest,
+  draftJobSpec,
   findRequestFiles,
   findSpecFiles,
   flattenTokenPaths,
@@ -47,6 +48,7 @@ import {
   simulateRequestContent,
   simulateSamplePrd,
   simulateSuggestedAnswer,
+  simulateFigmaJobResult,
 } from "./simulate.js";
 
 export interface DevApiContext {
@@ -701,6 +703,22 @@ function handleComponentsList(ctx: DevApiContext, res: ServerResponse): void {
 }
 
 /**
+ * Re-runs `ds build <id>` for an already-promoted component — no spec
+ * change, just refreshing generated/react/*​.tsx after a
+ * @ds-platform/generator-react change (e.g. custom anatomy part support)
+ * so an existing promoted component picks up the fix without redoing the
+ * whole request lifecycle. Mirrors worker/dev-api.ts's D1-backed equivalent.
+ */
+async function handleRegenerateComponent(ctx: DevApiContext, res: ServerResponse, id: string): Promise<void> {
+  if (!existsSync(specPathForId(ctx.componentsDir, id))) {
+    sendJson(res, 404, { ok: false, errors: [`no component found for "${id}"`] });
+    return;
+  }
+  const built = await runDsBuildSubprocess(ctx.repoRoot, id);
+  sendJson(res, 200, { ok: true, specId: id, regenerated: built });
+}
+
+/**
  * Every local-dev-only route the docs app's UI drives, dispatched by hand
  * (no router dependency, matching this repo's minimal-deps style) under one
  * mount point. See vite.config.ts's requestsDevApiPlugin for why this file
@@ -720,6 +738,8 @@ export async function handleDevApi(ctx: DevApiContext, req: IncomingMessage, res
     if (parts.length === 1 && parts[0] === "clear-generated") return await handleClearGenerated(ctx, res);
     if (parts.length === 2 && parts[0] === "requests" && parts[1] === "list") return handleRequestsList(ctx, res);
     if (parts.length === 2 && parts[0] === "components" && parts[1] === "list") return handleComponentsList(ctx, res);
+    if (parts.length === 3 && parts[0] === "components" && parts[2] === "regenerate")
+      return await handleRegenerateComponent(ctx, res, parts[1]);
     if (parts.length === 1 && parts[0] === "analyze") return await handleAnalyze(ctx, req, res);
     if (parts.length === 1 && parts[0] === "doc-check") return await handleDocCheck(ctx, req, res);
     if (parts.length === 1 && parts[0] === "sample-prd") return await handleSamplePrd(ctx, req, res);
@@ -740,6 +760,277 @@ export async function handleDevApi(ctx: DevApiContext, req: IncomingMessage, res
     sendJson(res, 404, { ok: false, errors: ["not found"] });
   } catch (err) {
     console.error("[dev-api] unhandled error:", err);
+    sendJson(res, 500, { ok: false, errors: [(err as Error).message ?? "unexpected error"] });
+  }
+}
+
+// --- Figma round trip: the build-job queue the plugin (packages/figma-plugin)
+// and the docs site both talk to. Mounted at a separate /api/figma/ prefix,
+// not under handleDevApi's /api/dev/* — those routes are POST-only and only
+// ever called by this same docs app; these need real GET support for the
+// plugin's fetch() calls, and are called cross-origin from Figma's plugin
+// sandbox, so (unlike /api/dev/*) they need CORS. Jobs live at
+// requests/<id>/figma-jobs/<jobId>.json, one file per job — the fs mirror of
+// worker/dev-api.ts's figma_jobs D1 table.
+
+type FigmaJobStatus = "pending" | "claimed" | "done" | "failed";
+
+interface FigmaJobRecord {
+  id: string;
+  requestId: string;
+  spec: ComponentSpec;
+  targetFileKey?: string;
+  status: FigmaJobStatus;
+  result?: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function figmaJobsDir(requestsDir: string, requestId: string): string {
+  return join(requestsDir, requestId, "figma-jobs");
+}
+
+function writeFigmaJobRecord(requestsDir: string, job: FigmaJobRecord): void {
+  const dir = figmaJobsDir(requestsDir, job.requestId);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${job.id}.json`), JSON.stringify(job, null, 2) + "\n", "utf-8");
+}
+
+/** Jobs are looked up by id alone (a GET from the plugin doesn't know the request ahead of time) — scans every request's figma-jobs/ dir. Fine at local-dev scale. */
+function findFigmaJobById(requestsDir: string, jobId: string): FigmaJobRecord | undefined {
+  if (!existsSync(requestsDir)) return undefined;
+  for (const entry of readdirSync(requestsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const path = join(requestsDir, entry.name, "figma-jobs", `${jobId}.json`);
+    if (existsSync(path)) return JSON.parse(readFileSync(path, "utf-8"));
+  }
+  return undefined;
+}
+
+function findAllPendingFigmaJobs(requestsDir: string): FigmaJobRecord[] {
+  if (!existsSync(requestsDir)) return [];
+  const jobs: FigmaJobRecord[] = [];
+  for (const reqEntry of readdirSync(requestsDir, { withFileTypes: true })) {
+    if (!reqEntry.isDirectory()) continue;
+    const dir = join(requestsDir, reqEntry.name, "figma-jobs");
+    if (!existsSync(dir)) continue;
+    for (const jobEntry of readdirSync(dir, { withFileTypes: true })) {
+      if (!jobEntry.isFile() || !jobEntry.name.endsWith(".json")) continue;
+      const job: FigmaJobRecord = JSON.parse(readFileSync(join(dir, jobEntry.name), "utf-8"));
+      if (job.status === "pending") jobs.push(job);
+    }
+  }
+  return jobs.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+interface JobResultBody {
+  fileKey?: string;
+  nodeId?: string;
+  componentSetId?: string;
+  variantKeys?: string[];
+  status: "done" | "failed";
+  error?: string;
+  simulate?: boolean;
+  figmaConfig?: FigmaEnv;
+}
+
+/**
+ * Shared by the real POST /result callback and the simulated branch of job
+ * creation (see §E's "let the callback path run end to end"). Reuses
+ * resolveFigmaClient/reconcileRequest/simulateFigmaReconciliation exactly
+ * as handleVerify already does — no reconciliation logic is duplicated.
+ */
+function completeJob(ctx: DevApiContext, job: FigmaJobRecord, body: JobResultBody, res: ServerResponse): void {
+  const now = new Date().toISOString();
+
+  if (body.status === "failed") {
+    writeFigmaJobRecord(ctx.requestsDir, { ...job, status: "failed", result: { error: body.error }, updatedAt: now });
+    sendJson(res, 200, { ok: true, job: { id: job.id, status: "failed", error: body.error } });
+    return;
+  }
+
+  const request = readRequestFile(ctx.requestsDir, job.requestId);
+  if (!request) {
+    writeFigmaJobRecord(ctx.requestsDir, {
+      ...job,
+      status: "failed",
+      result: { error: `request "${job.requestId}" no longer exists` },
+      updatedAt: now,
+    });
+    sendJson(res, 404, { ok: false, errors: [`request "${job.requestId}" no longer exists`] });
+    return;
+  }
+  if (!body.fileKey) {
+    writeFigmaJobRecord(ctx.requestsDir, {
+      ...job,
+      status: "failed",
+      result: { error: "the plugin did not report a fileKey" },
+      updatedAt: now,
+    });
+    sendJson(res, 400, { ok: false, errors: ["fileKey is required for a done job"] });
+    return;
+  }
+
+  const current = { ...request, figmaFileKey: body.fileKey };
+
+  function finish(report: ReturnType<typeof simulateFigmaReconciliation>): void {
+    const nextStatus = report.ok ? "ready-for-verification" : "in-design";
+    writeRequestFile(ctx.requestsDir, { ...current, status: nextStatus });
+    const result = {
+      fileKey: body.fileKey,
+      nodeId: body.nodeId,
+      componentSetId: body.componentSetId,
+      variantKeys: body.variantKeys,
+      reconciliation: report,
+    };
+    writeFigmaJobRecord(ctx.requestsDir, { ...job, status: "done", result, updatedAt: now });
+    sendJson(res, 200, { ok: true, job: { id: job.id, status: "done", result } });
+  }
+
+  if (body.simulate) {
+    finish(simulateFigmaReconciliation(current));
+    return;
+  }
+
+  const resolvedFigma = resolveFigmaClient(body.figmaConfig);
+  if ("error" in resolvedFigma) {
+    writeFigmaJobRecord(ctx.requestsDir, { ...job, status: "failed", result: { error: resolvedFigma.error }, updatedAt: now });
+    sendJson(res, 503, { ok: false, errors: [resolvedFigma.error] });
+    return;
+  }
+  resolvedFigma.client
+    .getFile(body.fileKey)
+    .then((file) => finish(reconcileRequest(current, file)))
+    .catch((err: Error) => {
+      writeFigmaJobRecord(ctx.requestsDir, { ...job, status: "failed", result: { error: err.message }, updatedAt: now });
+      sendJson(res, 502, { ok: false, errors: [err.message] });
+    });
+}
+
+/** "Send to Figma" — creates a pending job from an approved/in-design request's synthesized job spec (see draftJobSpec). */
+async function handleCreateFigmaJob(ctx: DevApiContext, req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const { requestId, simulate } = await parseJsonBody<{ requestId?: string; simulate?: boolean }>(req);
+  if (!requestId) {
+    sendJson(res, 400, { ok: false, errors: ["requestId is required"] });
+    return;
+  }
+
+  const request = readRequestFile(ctx.requestsDir, requestId);
+  if (!request) {
+    sendJson(res, 404, { ok: false, errors: [`no request found for "${requestId}"`] });
+    return;
+  }
+  if (request.status !== "approved" && request.status !== "in-design") {
+    sendJson(res, 409, {
+      ok: false,
+      errors: [`can only send an approved or in-design request to Figma (current status: "${request.status}")`],
+    });
+    return;
+  }
+
+  const spec = draftJobSpec(request);
+  const now = new Date().toISOString();
+  const job: FigmaJobRecord = {
+    id: crypto.randomUUID(),
+    requestId,
+    spec,
+    targetFileKey: request.figmaFileKey,
+    status: "pending",
+    createdAt: now,
+    updatedAt: now,
+  };
+  writeFigmaJobRecord(ctx.requestsDir, job);
+
+  if (simulate) {
+    completeJob(ctx, job, { ...simulateFigmaJobResult(spec), simulate: true }, res);
+    return;
+  }
+
+  sendJson(res, 200, { ok: true, jobId: job.id, status: "pending" });
+}
+
+function handleListPendingFigmaJobs(ctx: DevApiContext, res: ServerResponse): void {
+  const jobs = findAllPendingFigmaJobs(ctx.requestsDir);
+  sendJson(res, 200, {
+    ok: true,
+    jobs: jobs.map((j) => {
+      const request = readRequestFile(ctx.requestsDir, j.requestId);
+      return { id: j.id, requestId: j.requestId, requestName: request?.name ?? j.requestId, createdAt: j.createdAt };
+    }),
+  });
+}
+
+/**
+ * `claim=1` (the plugin's own fetch, right before it starts building) flips
+ * a pending job to claimed as a side effect. Docs-site polling omits it —
+ * polling must stay read-only, or every poll right after job creation would
+ * itself flip pending to claimed before a human ever opened Figma.
+ */
+function handleGetFigmaJob(ctx: DevApiContext, res: ServerResponse, jobId: string, claim: boolean): void {
+  const job = findFigmaJobById(ctx.requestsDir, jobId);
+  if (!job) {
+    sendJson(res, 404, { ok: false, errors: [`no job found for "${jobId}"`] });
+    return;
+  }
+  const nextStatus = claim && job.status === "pending" ? "claimed" : job.status;
+  if (nextStatus !== job.status) {
+    writeFigmaJobRecord(ctx.requestsDir, { ...job, status: nextStatus, updatedAt: new Date().toISOString() });
+  }
+
+  const request = readRequestFile(ctx.requestsDir, job.requestId);
+  sendJson(res, 200, {
+    ok: true,
+    job: {
+      id: job.id,
+      requestId: job.requestId,
+      requestName: request?.name ?? job.requestId,
+      status: nextStatus,
+      createdAt: job.createdAt,
+      specJson: job.spec,
+      tokens: loadTokens(ctx.tokensPath),
+      result: job.result,
+    },
+  });
+}
+
+async function handlePostFigmaJobResult(ctx: DevApiContext, req: IncomingMessage, res: ServerResponse, jobId: string): Promise<void> {
+  const job = findFigmaJobById(ctx.requestsDir, jobId);
+  if (!job) {
+    sendJson(res, 404, { ok: false, errors: [`no job found for "${jobId}"`] });
+    return;
+  }
+  const body = await parseJsonBody<JobResultBody>(req);
+  completeJob(ctx, job, body, res);
+}
+
+function setCorsHeaders(res: ServerResponse): void {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "content-type");
+}
+
+export async function handleFigmaApi(ctx: DevApiContext, req: IncomingMessage, res: ServerResponse): Promise<void> {
+  setCorsHeaders(res);
+  if (req.method === "OPTIONS") {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
+
+  try {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const parts = url.pathname.split("/").filter(Boolean);
+
+    if (parts.length === 1 && parts[0] === "jobs" && req.method === "POST") return await handleCreateFigmaJob(ctx, req, res);
+    if (parts.length === 1 && parts[0] === "jobs" && req.method === "GET") return handleListPendingFigmaJobs(ctx, res);
+    if (parts.length === 2 && parts[0] === "jobs" && req.method === "GET")
+      return handleGetFigmaJob(ctx, res, parts[1]!, url.searchParams.get("claim") === "1");
+    if (parts.length === 3 && parts[0] === "jobs" && parts[2] === "result" && req.method === "POST")
+      return await handlePostFigmaJobResult(ctx, req, res, parts[1]!);
+
+    sendJson(res, 404, { ok: false, errors: ["not found"] });
+  } catch (err) {
+    console.error("[figma-api] unhandled error:", err);
     sendJson(res, 500, { ok: false, errors: [(err as Error).message ?? "unexpected error"] });
   }
 }

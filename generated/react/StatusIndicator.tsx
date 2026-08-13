@@ -10,6 +10,8 @@ import * as React from "react";
 
 export type StatusIndicatorVariantProps =
   { variant?: "primary" }
+  | { variant?: "success" }
+  | { variant?: "error" }
   | { variant?: "loading" }
   | { variant?: "warning" };
 
@@ -37,6 +39,7 @@ export const StatusIndicator = React.forwardRef<HTMLDivElement, StatusIndicatorP
     <div
       ref={ref}
       className="ds-status-indicator"
+      role="status"
       data-variant={variant}
       data-size={size}
       data-state={dataState}

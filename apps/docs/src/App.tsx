@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useRegistry } from "./registry.js";
+import { useInjectedStyles } from "./useInjectedStyles.js";
 import { ComponentDoc } from "./components/ComponentDoc.js";
 import { Wizard } from "./components/Wizard.js";
 import { AskWidget } from "./components/AskWidget.js";
@@ -19,6 +20,7 @@ export function App() {
   const { simulate, setSimulate } = useSimulation();
   const devApi = useDevApi();
   const { entries: registry, loading: registryLoading, error: registryError } = useRegistry();
+  useInjectedStyles(registry);
   const [view, setViewState] = React.useState<View>(() => {
     const fromUrl = getQueryParam("view");
     return isView(fromUrl) ? fromUrl : "wizard";

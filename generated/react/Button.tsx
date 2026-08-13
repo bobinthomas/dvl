@@ -49,6 +49,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     <button
       ref={ref}
       className="ds-button"
+      role="button"
       data-variant={variant}
       data-size={size}
       data-state={dataState}

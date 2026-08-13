@@ -6,12 +6,78 @@
  */
 @import "./tokens.css";
 
-.ds-status-indicator [data-part="icon"] {
-  color: var(--color-action-primary-default-bg);
+.ds-status-indicator {
+  border-radius: var(--radius-pill);
+  padding-block: var(--spacing-xs);
+  padding-inline: var(--spacing-md);
+}
+
+.ds-status-indicator[data-variant="primary"] {
+  background-color: var(--color-status-primary-bg);
+}
+
+.ds-status-indicator[data-variant="success"] {
+  background-color: var(--color-status-success-bg);
+}
+
+.ds-status-indicator[data-variant="error"] {
+  background-color: var(--color-status-error-bg);
+}
+
+.ds-status-indicator[data-variant="warning"] {
+  background-color: var(--color-status-warning-bg);
+}
+
+.ds-status-indicator[data-variant="loading"] {
+  background-color: var(--color-status-loading-bg);
+}
+
+.ds-status-indicator [data-part="icon"][data-variant="primary"] {
+  color: var(--color-status-primary-fg);
   size: var(--font-size-sm);
 }
 
-.ds-status-indicator [data-part="label"] {
-  color: var(--color-brand-neutral-900);
+.ds-status-indicator [data-part="icon"][data-variant="success"] {
+  color: var(--color-status-success-fg);
+  size: var(--font-size-sm);
+}
+
+.ds-status-indicator [data-part="icon"][data-variant="error"] {
+  color: var(--color-status-error-fg);
+  size: var(--font-size-sm);
+}
+
+.ds-status-indicator [data-part="icon"][data-variant="warning"] {
+  color: var(--color-status-warning-fg);
+  size: var(--font-size-sm);
+}
+
+.ds-status-indicator [data-part="icon"][data-variant="loading"] {
+  color: var(--color-status-loading-fg);
+  size: var(--font-size-sm);
+}
+
+.ds-status-indicator [data-part="label"][data-variant="primary"] {
+  color: var(--color-status-primary-fg);
+  font-size: var(--font-size-sm);
+}
+
+.ds-status-indicator [data-part="label"][data-variant="success"] {
+  color: var(--color-status-success-fg);
+  font-size: var(--font-size-sm);
+}
+
+.ds-status-indicator [data-part="label"][data-variant="error"] {
+  color: var(--color-status-error-fg);
+  font-size: var(--font-size-sm);
+}
+
+.ds-status-indicator [data-part="label"][data-variant="warning"] {
+  color: var(--color-status-warning-fg);
+  font-size: var(--font-size-sm);
+}
+
+.ds-status-indicator [data-part="label"][data-variant="loading"] {
+  color: var(--color-status-loading-fg);
   font-size: var(--font-size-sm);
 }

@@ -7,7 +7,7 @@
 import { ComponentSpecSchema, type ComponentSpec } from "@ds-platform/core";
 import { createGatewayClient, loadGatewayEnv, answerDocsQuestion, ModelOutputError } from "@ds-platform/agents";
 import { rawSpecs } from "./specs.js";
-import { handleDevApi, type DevApiEnv } from "./dev-api.js";
+import { handleDevApi, handleFigmaApi, type DevApiEnv } from "./dev-api.js";
 
 export interface Env extends DevApiEnv {
   ASSETS: Fetcher;
@@ -77,6 +77,10 @@ export default {
 
     if (url.pathname.startsWith("/api/dev/")) {
       return handleDevApi(env, request, url.pathname.slice("/api/dev/".length));
+    }
+
+    if (url.pathname.startsWith("/api/figma/")) {
+      return handleFigmaApi(env, request, url.pathname.slice("/api/figma/".length), url.searchParams);
     }
 
     return env.ASSETS.fetch(request);

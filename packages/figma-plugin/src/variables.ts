@@ -1,6 +1,6 @@
-import type { ComponentSpec, TokenTree } from "@ds-platform/core";
+import type { ComponentSpec } from "@ds-platform/core/schema";
 import { matchSelector } from "@ds-platform/core/selector";
-import { resolveToken } from "@ds-platform/core/tokens";
+import { resolveToken, type TokenTree } from "@ds-platform/core/tokens";
 import { legalCombos } from "./combos.js";
 
 export interface TokenVarInfo {
@@ -11,7 +11,7 @@ export interface TokenVarInfo {
   /** Figma Variable name, matching Figma's own "/" grouping convention. */
   figmaName: string;
   figmaType: "COLOR" | "FLOAT";
-  /** The variable's default value, resolved from tokens/tokens.json at generation time. */
+  /** The variable's default value, resolved from tokens/tokens.json at build time. */
   initialValue: { r: number; g: number; b: number } | number;
 }
 

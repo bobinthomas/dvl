@@ -39,11 +39,11 @@ export interface FigmaClient {
 const FIGMA_API_BASE = "https://api.figma.com/v1";
 
 /**
- * Per BUILD-PROMPT (see packages/generators/figma), the Figma REST API
- * cannot create components — only the Plugin API can, which is why the
- * generator writes a plugin script instead of calling this. This client
- * exists for the opposite direction: reading a file a human already built,
- * which the REST API can do fine.
+ * Per BUILD-PROMPT (see packages/figma-plugin), the Figma REST API cannot
+ * create components — only the Plugin API can, which is why building a
+ * component runs inside a real Figma plugin instead of calling this. This
+ * client exists for the opposite direction: reading a file the plugin (or a
+ * human) already built, which the REST API can do fine.
  */
 export function createFigmaRestClient(env: FigmaEnv): FigmaClient {
   async function request<T>(path: string): Promise<T> {

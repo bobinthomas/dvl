@@ -9,7 +9,6 @@
     { "path": "../core" },
     { "path": "../agents" },
     { "path": "../validator" },
-    { "path": "../generators/figma" },
     { "path": "../generators/react" },
     { "path": "../generators/react-native" },
     { "path": "../generators/stories" },

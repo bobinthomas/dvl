@@ -2,11 +2,14 @@
 
 A spec-driven design system platform. One hand-authored JSON file per
 component — `components/<id>/spec.json` — is the single source of truth;
-React, React Native, Storybook stories, conformance tests, and a Figma
-plugin are all *generated* from it, never hand-edited. A docs site
-(`apps/docs`) renders the generated components and drives the whole
-pipeline — from a PRD, through a request queue, to a promoted spec — as a
-guided "Wizard," both locally and on a deployed Cloudflare Worker.
+React, React Native, Storybook stories, and conformance tests are all
+*generated* from it, never hand-edited. A single spec-agnostic Figma plugin
+(`packages/figma-plugin`, installed once) builds any component's real Figma
+nodes/Variables at runtime from the same spec. A docs site (`apps/docs`)
+renders the generated components and drives the whole pipeline — from a
+PRD, through a request queue, to a promoted spec, including sending a
+request to that Figma plugin and auto-verifying the result — as a guided
+"Wizard," both locally and on a deployed Cloudflare Worker.
 
 This README documents every flow in the platform: the CLI, the component
 request lifecycle, the docs site (local and deployed), governance/CI, and
@@ -22,7 +25,6 @@ requests/<id>/BRIEF.md        Design brief, written by `ds request brief`
 tokens/tokens.json            DTCG design tokens — the only place raw color/spacing/etc. values live
 generated/react/              `ds build` output: .tsx + .css per component, tokens.css
 generated/react-native/       `ds build` output: React Native components
-generated/figma/<Name>/       `ds build` output: a Figma plugin (code.ts + manifest.json)
 generated/stories/            `ds build` output: Storybook stories
 generated/tests/              `ds build` output: conformance + native-smoke tests
 overrides/<id>/               Hand-written escape hatches a generator can't express
@@ -31,11 +33,11 @@ packages/core/                Schema, token resolution, contrast/selector logic 
 packages/validator/           `ds validate`'s rule set (schema conformance, raw values, token refs, examples, contrast)
 packages/generators/react/    Spec -> .tsx + .css (Handlebars template + Style Dictionary for tokens.css)
 packages/generators/react-native/  Spec -> React Native components
-packages/generators/figma/    Spec -> a Figma plugin (Plugin API, not REST — see "Figma integration")
 packages/generators/stories/  Spec -> Storybook stories
 packages/generators/tests/    Spec -> conformance + native-smoke tests
 packages/agents/              AI Gateway/direct-provider calls: gap analysis, doc-quality, intake interview, docs Q&A
-packages/figma-client/        Figma REST client + reconciliation (request <-> live Figma file)
+packages/figma-client/        Figma REST client + reconciliation (request <-> live Figma file) — see "Figma integration"
+packages/figma-plugin/        The spec-agnostic Figma plugin (Plugin API, not REST) — see "Figma integration"
 packages/governance/          Semver diff + changelog generation
 packages/cli/                 The `ds` command (bin: packages/cli/bin/ds.mjs)
 packages/mcp-server/          Serves every component spec as an MCP resource (bin: ds-mcp-server)
@@ -62,9 +64,9 @@ components/<id>/spec.json
    ds validate  ──── schema conformance, raw-value ban, token-ref resolution,
         │             example coverage, WCAG AA contrast
         ▼
-   ds build     ──── generateReact / generateReactNative / generateFigmaPlugin /
-        │             generateStories / generateConformanceTests (all pure functions
-        │             of a validated spec — no network, no AI)
+   ds build     ──── generateReact / generateReactNative / generateStories /
+        │             generateConformanceTests (all pure functions of a
+        │             validated spec — no network, no AI)
         ▼
    generated/**       ds check verifies this matches what `ds build` would
                        produce right now (the CI "sync gate" — generated/
@@ -81,7 +83,7 @@ itself (see "Component request flow").
 | Command | What it does |
 |---|---|
 | `ds validate [component]` | Validate one or every spec against the schema, tokens, and governance rules |
-| `ds build [component]` | Validate, then generate React/RN/Figma/stories/tests output into `generated/` |
+| `ds build [component]` | Validate, then generate React/RN/stories/tests output into `generated/` |
 | `ds check [component]` | Sync gate — fails if `generated/` doesn't match what `ds build` would produce right now |
 | `ds analyze <prdPath> [--check-docs]` | Gap analysis — classify what a PRD needs against the real `components/` inventory (AI) |
 | `ds doc-check [component]` | Judge whether a component's docs are proper enough to adopt without asking questions (AI) |
@@ -106,23 +108,26 @@ validator, sync gate, or changelog gate until it's promoted.
 
 ```
 pending ──approve──▶ approved ──brief──▶ in-design ──verify──▶ ready-for-verification ──promote──▶ promoted
-  │                                           ▲                         │
-  │                                    (paste Figma file key,           │
-  │                                     re-run verify until it          │
-  │                                     reconciles)                     │
-  │                                                                     ▼
-  └── rejected                                              components/<id>/spec.json drafted,
-                                                              then `ds build <id>` runs for real
+  │                        │                  ▲    │                       │
+  │                        └── Send to Figma ─┘    │                       │
+  │                    (see "Figma integration") (paste a fileKey,         │
+  │                                              re-run verify by hand     │
+  │                                              — still works as a       ▼
+  │                                              fallback)     components/<id>/spec.json drafted,
+  └── rejected                                                then `ds build <id>` runs for real
 ```
 
 - **approve** — a human decides this is worth building.
 - **brief** — generates `requests/<id>/BRIEF.md`, a mechanical (non-AI) design
   brief: problem, expected variants, and this platform's fixed token/anatomy/
   accessibility conventions, for a designer to build from in Figma.
-- **verify** — reconciles the live Figma file (via `figmaFileKey`) against
-  the request's expected variants, using the Figma REST API. Only a real
-  Component/Component Set built with bound Figma Variables reconciles — a
-  mockup or spec sheet, however accurate it looks, won't.
+- **verify** — reconciles a live Figma file against the request's expected
+  variants, using the Figma REST API. Only a real Component/Component Set
+  built with bound Figma Variables reconciles — a mockup or spec sheet,
+  however accurate it looks, won't. Two ways to get there: manually paste a
+  `figmaFileKey` once a designer's built something and re-run verify, or
+  **Send to Figma** (available once approved) — no fileKey to paste, no
+  manual verify click; see "Figma integration."
 - **promote** — an intake interview (AI) asks what the request still doesn't
   answer, drafts a `ComponentSpec` from the answers (forced to
   `status: "draft"`, never `"stable"`), writes `components/<id>/spec.json`,
@@ -130,7 +135,8 @@ pending ──approve──▶ approved ──brief──▶ in-design ──ver
 
 Run this end to end from the CLI (`ds request new/approve/brief/verify`,
 `ds new --from-request <id>`) or from the docs site's Wizard — both drive
-the same lifecycle.
+the same lifecycle. Send to Figma is docs-site-only (the plugin has nothing
+to talk to from a terminal).
 
 ## The docs site (`apps/docs`)
 
@@ -221,18 +227,75 @@ any red step fails the job.
 
 ## Figma integration
 
-Two independent, non-overlapping integrations:
+Two platform constraints shape everything here: the Figma REST API is
+read-only (it cannot create nodes, components, or variables), and plugins
+only execute inside the Figma app (no headless path). So a human still has
+to press **Build** inside Figma — but everything on either side of that
+press is automatic. The round trip:
 
-- **Verify** (`packages/figma-client`, REST API) — reconciles a component
-  *request* against a live Figma file a designer built: fetches the file via
-  `GET /v1/files/:key`, checks that every expected variant exists as a real
-  Component/Component Set (not a mockup) with at least one bound Figma
-  Variable. The REST API can only *read* Figma — it cannot create anything.
-- **Figma plugin generator** (`packages/generators/figma`) — `ds build`
-  generates a Figma **plugin** (`generated/figma/<Name>/code.ts` +
-  `manifest.json`) that uses the Plugin API to construct the component as
-  real Figma nodes/variables. Plugins run inside Figma's own sandbox; this
-  can only be loaded and run inside the Figma app itself, never headlessly.
+```
+Docs site: "Send to Figma" on an approved/in-design request
+        │  POST /api/figma/jobs — draftJobSpec(request) synthesizes a small,
+        │  ungoverned ComponentSpec (real props/tokens, never written to
+        │  components/) as the job's payload; row status: pending
+        ▼
+Figma plugin (installed once, spec-agnostic): open it, see every pending
+job across every request, pick one
+        │  GET /api/figma/jobs/:id?claim=1 — fetches the full spec, flips
+        │  the job to claimed
+        ▼
+Plugin builds for real, using the Plugin API (packages/figma-plugin):
+one ComponentSet, one Component per legal (prop combo, state) pairing,
+every styled property bound to a real Figma Variable — no raw hex/px,
+no component name hardcoded anywhere in the plugin
+        │  POST /api/figma/jobs/:id/result — { fileKey, nodeId,
+        │  componentSetId, variantKeys, status: "done" }
+        ▼
+Callback sets the request's figmaFileKey from the result, then
+immediately runs reconcileRequest — the exact same reconciliation
+packages/figma-client has always used, called once here, not duplicated
+        │
+        ▼
+reconciles ─▶ request moves to ready-for-verification
+doesn't    ─▶ request stays in-design; the docs site shows what was
+              expected vs. what was found, same as a failed manual verify
+```
+
+- **`packages/figma-client`** (REST API, read-only) — `reconcileRequest`
+  fetches the live file via `GET /v1/files/:key` and checks that every
+  expected variant exists as a real Component/Component Set (not a mockup)
+  with at least one bound Figma Variable. This is the single reconciliation
+  implementation — the manual `ds request verify` path, the docs site's
+  manual Verify button, and the automated callback above all call the exact
+  same function.
+- **`packages/figma-plugin`** (Plugin API) — one plugin, installed once
+  (Figma → Plugins → Development → Import plugin from manifest, pointed at
+  this package's `manifest.json`), that reads *any* spec at runtime and
+  builds it — never a per-component generated plugin. `pnpm --filter
+  @ds-platform/figma-plugin build` bundles `src/code.ts` into
+  `dist/code.js` (the one thing in this repo that needs a real bundler —
+  everything else runs as TS source directly). `manifest.json`'s
+  `networkAccess` must list every origin the plugin's `fetch()` calls hit —
+  Figma blocks any request to a domain not listed there, on top of ordinary
+  CORS — split across `allowedDomains` (the deployed Worker; requires a
+  `reasoning` string) and `devAllowedDomains` (localhost ports; Figma
+  rejects plain `http://localhost:*` entries under `allowedDomains`
+  outright). `manifest.json` also needs `"enablePrivatePluginApi": true` —
+  without it `figma.fileKey` (how the callback reports which file it built
+  into) stays `undefined` regardless of whether the file is saved into a
+  real project; this is a private-plugin-only API and this plugin is never
+  published to Community, so it's safe to enable unconditionally.
+- **The job queue** — `figma_jobs` (D1 table, `worker/schema.sql`) in
+  production, `requests/<id>/figma-jobs/<jobId>.json` files locally
+  (`dev-server/api.ts`) — both backends expose the identical
+  `/api/figma/jobs*` routes (a separate mount from `/api/dev/*`: these need
+  real `GET` support and CORS, since the plugin calls them cross-origin
+  from Figma's sandbox, unlike every `/api/dev/*` route which only this
+  app's own UI ever calls).
+- **Simulation mode** extends to this too: with Simulation mode on, Send to
+  Figma resolves synchronously — no plugin, no Figma, no credentials — via
+  a canned `simulateFigmaJobResult`, running through the exact same
+  callback/reconciliation code a real plugin's POST would.
 
 ## MCP server
 

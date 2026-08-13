@@ -40,6 +40,14 @@ function devApiPlugin(): Plugin {
         const api = await server.ssrLoadModule("/dev-server/api.ts");
         await (api.handleDevApi as typeof import("./dev-server/api.js").handleDevApi)(ctx, req, res);
       });
+
+      // Separate mount point: the Figma plugin's fetch() calls (unlike
+      // /api/dev/*, which only this app's own UI ever calls) need real GET
+      // support and CORS — see dev-server/api.ts's handleFigmaApi.
+      server.middlewares.use("/api/figma", async (req, res) => {
+        const api = await server.ssrLoadModule("/dev-server/api.ts");
+        await (api.handleFigmaApi as typeof import("./dev-server/api.js").handleFigmaApi)(ctx, req, res);
+      });
     },
   };
 }

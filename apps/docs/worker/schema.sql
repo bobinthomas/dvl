@@ -20,3 +20,20 @@ CREATE TABLE IF NOT EXISTS components (
   react_css TEXT,
   updated_at TEXT NOT NULL
 );
+
+-- The Figma round trip's build-job queue. spec_json is an ephemeral,
+-- ungoverned ComponentSpec synthesized from a request (see
+-- @ds-platform/core's draftJobSpec) — never the same row as `components`,
+-- never written there either. status: pending | claimed | done | failed.
+-- result_json (once done/failed) holds { fileKey, nodeId, componentSetId,
+-- variantKeys, reconciliation } or { error }.
+CREATE TABLE IF NOT EXISTS figma_jobs (
+  id TEXT PRIMARY KEY,
+  request_id TEXT NOT NULL,
+  spec_json TEXT NOT NULL,
+  target_file_key TEXT,
+  status TEXT NOT NULL,
+  result_json TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

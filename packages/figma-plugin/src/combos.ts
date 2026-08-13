@@ -1,4 +1,4 @@
-import type { ComponentSpec, PropDef } from "@ds-platform/core";
+import type { ComponentSpec, PropDef } from "@ds-platform/core/schema";
 import { isCombinationValid } from "@ds-platform/core/invalid-combinations";
 
 export interface VariantCombo {
@@ -12,11 +12,11 @@ function enumProps(spec: ComponentSpec): PropDef[] {
 
 /**
  * Every legal (prop combo, state) pairing — the full variant matrix Figma
- * needs, unlike the RN generator's subset: Figma is a static design
- * surface, so every declared state (including hover/focus, which have no
- * runtime equivalent on native) gets its own variant for a designer to
- * reference. invalidCombinations can name "state" alongside prop names
- * (the schema allows it), so pruning checks the combo with state included.
+ * needs: Figma is a static design surface, so every declared state
+ * (including hover/focus, which have no runtime equivalent on native) gets
+ * its own variant for a designer to reference. invalidCombinations can name
+ * "state" alongside prop names (the schema allows it), so pruning checks
+ * the combo with state included.
  */
 export function legalCombos(spec: ComponentSpec): VariantCombo[] {
   let propCombos: Record<string, string>[] = [{}];

@@ -121,6 +121,12 @@ must never claim completeness you don't have. If the interview didn't cover some
 requires, make the most conservative reasonable choice and keep the component's "description" honest
 about what's assumed.
 
+Every prop's "type" must be EXACTLY one of "enum", "boolean", "string", "number", "function", or
+"node" — never "array", "object", or any other JavaScript/JSON type name, even for a prop that
+naturally holds a list or collection (e.g. a set of time slots, a list of tabs). Model that as "node"
+if it's rendered content the caller passes in (e.g. a list of child elements), or as "string" if it's
+data the component itself parses (e.g. a serialized value) — never invent a type outside those six.
+
 "invalidCombinations" entries are flat objects where every value is a STRING, never a boolean —
 including for states. To mark a state as part of an invalid combination, use the key "state" with the
 state's name as the string value, e.g. {"state": "loading", "variant": "ghost"} (loading + ghost is

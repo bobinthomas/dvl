@@ -1,5 +1,6 @@
 import * as React from "react";
 import { ComponentRequestSchema, type ComponentRequest } from "@ds-platform/core/request-schema";
+import { fetchJsonWithRetry } from "./fetchJsonWithRetry.js";
 
 export interface RequestEntry {
   request: ComponentRequest;
@@ -42,12 +43,11 @@ export function useRequestRegistry(): RequestRegistryState {
 
   React.useEffect(() => {
     let cancelled = false;
-    fetch("/api/dev/requests/list", { method: "POST" })
-      .then((res) => res.json().catch(() => null) as Promise<ListResponse | null>)
+    fetchJsonWithRetry<ListResponse>("/api/dev/requests/list")
       .then((data) => {
         if (cancelled) return;
-        if (!data?.ok || !data.requests) {
-          setError(data?.errors?.join("; ") ?? "failed to load requests");
+        if (!data.requests) {
+          setError(data.errors?.join("; ") ?? "failed to load requests");
           setLoading(false);
           return;
         }

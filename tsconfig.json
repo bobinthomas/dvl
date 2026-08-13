@@ -9,9 +9,9 @@
     { "path": "packages/validator" },
     { "path": "packages/generators/react" },
     { "path": "packages/generators/react-native" },
-    { "path": "packages/generators/figma" },
     { "path": "packages/generators/stories" },
     { "path": "packages/generators/tests" },
+    { "path": "packages/figma-plugin" },
     { "path": "packages/cli" },
     { "path": "apps/docs" },
     { "path": "apps/docs/worker" }

@@ -21,6 +21,8 @@ function partSelector(id: string, part: string): string {
   return part === "root" ? `.ds-${id}` : `.ds-${id} [data-part="${part}"]`;
 }
 
+const SPECIAL_PARTS = new Set(["icon", "label", "loader"]);
+
 /**
  * One CSS rule per token binding, in declaration order. This deliberately
  * does not pre-resolve bindings the way core's selector.ts does for a
@@ -30,7 +32,20 @@ function partSelector(id: string, part: string): string {
  * declaration wins ties" without any extra sorting here.
  */
 export function buildComponentCss(spec: ComponentSpec): string {
-  const rules = spec.tokens.map((binding) => {
+  const rules: string[] = [];
+
+  // A platform-wide structural default, not spec-driven, matching the
+  // focus-visible rule below: anatomy parts beyond icon/label/loader have
+  // no established layout convention (unlike icon+label, which read fine
+  // inline), so without this they render as one run-on line of text.
+  // Declared before any spec rule below so a spec that wants a different
+  // root layout can still override it (later declaration wins on the tie).
+  const hasCustomParts = spec.anatomy.parts.some((p) => !SPECIAL_PARTS.has(p.name));
+  if (hasCustomParts) {
+    rules.push(`${partSelector(spec.id, "root")} {\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n}`);
+  }
+
+  rules.push(...spec.tokens.map((binding) => {
     let attrSelectors = "";
     let pseudo = "";
     for (const [key, value] of Object.entries(binding.when)) {
@@ -47,7 +62,7 @@ export function buildComponentCss(spec: ComponentSpec): string {
       .map(([prop, ref]) => `  ${cssPropertyName(prop)}: ${tokenRefToCssVar(ref)};`)
       .join("\n");
     return `${selector} {\n${declarations}\n}`;
-  });
+  }));
 
   // Visible keyboard focus is a platform-wide accessibility default, not a
   // per-component design decision, so it isn't spec-driven like the rules

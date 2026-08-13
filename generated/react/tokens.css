@@ -14,6 +14,16 @@
   --color-brand-neutral-500: #6b778c;
   --color-brand-neutral-700: #42526e;
   --color-brand-neutral-900: #172b4d;
+  --color-status-primary-fg: #1d4ed8;
+  --color-status-primary-bg: #eff6ff;
+  --color-status-success-fg: #15803d;
+  --color-status-success-bg: #f0fdf4;
+  --color-status-error-fg: #b91c1c;
+  --color-status-error-bg: #fef2f2;
+  --color-status-warning-fg: #b45309;
+  --color-status-warning-bg: #fffbeb;
+  --color-status-loading-fg: #475569;
+  --color-status-loading-bg: #f1f5f9;
   --color-action-primary-default-bg: #0052cc;
   --color-action-primary-default-fg: #ffffff;
   --color-action-primary-hover-bg: #003d99;
@@ -25,6 +35,7 @@
   --color-action-secondary-hover-bg: #e6eeff;
   --color-action-tertiary-default-fg: #0052cc;
   --color-action-tertiary-hover-fg: #003d99;
+  --spacing-xs: 6px;
   --spacing-sm: 8px;
   --spacing-md: 12px;
   --spacing-lg: 16px;
@@ -32,4 +43,5 @@
   --font-size-md: 14px;
   --font-size-lg: 16px;
   --radius-md: 6px;
+  --radius-pill: 16px;
 }

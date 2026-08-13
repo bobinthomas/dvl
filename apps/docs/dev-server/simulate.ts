@@ -119,3 +119,31 @@ export function simulateSamplePrd(): SamplePrd {
 export function simulateSuggestedAnswer(): SuggestedAnswer {
   return { answer: "(simulated) a stand-in answer — turn simulation off for a real suggestion." };
 }
+
+export interface FigmaJobResult {
+  fileKey: string;
+  nodeId: string;
+  componentSetId: string;
+  variantKeys: string[];
+  status: "done";
+}
+
+/**
+ * Stands in for a real Figma plugin build + callback — the whole point of
+ * the Figma round trip's simulation mode is letting a request reach
+ * ready-for-verification with zero manual Figma interaction and zero
+ * credentials. Every value is derived from the job's own spec (never a
+ * hardcoded component), matching what the real plugin's callback would
+ * actually send.
+ */
+export function simulateFigmaJobResult(spec: ComponentSpec): FigmaJobResult {
+  const variantProp = spec.props.find((p) => p.type === "enum");
+  const variants = variantProp?.values ?? ["default"];
+  return {
+    fileKey: "(simulated)-file-key",
+    nodeId: "(simulated)-node-id",
+    componentSetId: "(simulated)-component-set-id",
+    variantKeys: variants.map((v) => `(simulated)-variant-${v}`),
+    status: "done",
+  };
+}

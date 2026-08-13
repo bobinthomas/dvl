@@ -1,9 +1,0 @@
-{
-  "name": "Button generator",
-  "id": "ds-platform-button",
-  "api": "1.0.0",
-  "main": "code.js",
-  "editorType": [
-    "figma"
-  ]
-}

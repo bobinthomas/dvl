@@ -17,7 +17,29 @@
       "database_name": "ds-platform-docs",
       "database_id": "2781bed6-14c4-4109-948a-9adae9a0ee1b"
     }
-  ]
+  ],
+  // A separate, isolated deployment for testing the real (non-simulated)
+  // Figma round trip — own name, own D1 database, so nothing here can touch
+  // the stable production Worker or its data. D1 bindings (like every
+  // binding) aren't inherited across Wrangler environments, so `assets` is
+  // redeclared here too rather than relying on inheritance.
+  // Deploy: `wrangler deploy --env preview`.
+  "env": {
+    "preview": {
+      "name": "ds-platform-docs-preview",
+      "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "ds-platform-docs-preview",
+          "database_id": "8f6597fd-eb70-4ddf-bb7b-a948f95e6d5c"
+        }
+      ]
+    }
+  }
   // Gateway credentials are secrets, never vars — never committed here.
   // Set with, one at a time:
   //   wrangler secret put CF_AI_GATEWAY_ACCOUNT_ID

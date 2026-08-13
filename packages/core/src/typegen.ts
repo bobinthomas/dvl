@@ -69,6 +69,13 @@ export function buildVariantUnion(spec: ComponentSpec): VariantUnion {
   const legalCombos = combos.filter(
     (combo) =>
       !spec.invalidCombinations.some((forbidden) => {
+        // A combination conditioned on "state" doesn't make a prop value
+        // universally illegal — only illegal alongside that specific state —
+        // and this union has no state dimension to condition on. Applying it
+        // here would wrongly drop the prop value from the type entirely
+        // (e.g. "state: loading, variant: success" forbidden must not erase
+        // "success" from every StatusIndicator's variant type).
+        if ("state" in forbidden) return false;
         const relevantKeys = Object.keys(forbidden).filter((k) => constrainedNames.includes(k));
         return relevantKeys.length > 0 && relevantKeys.every((k) => combo[k] === forbidden[k]);
       })

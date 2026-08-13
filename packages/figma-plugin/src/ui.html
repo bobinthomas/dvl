@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body { font-family: Inter, sans-serif; font-size: 12px; color: #1a1a1a; padding: 12px; margin: 0; }
+  h2 { font-size: 13px; margin: 0 0 8px; }
+  label { display: block; font-size: 11px; color: #666; margin-bottom: 2px; }
+  #api-base { width: 100%; box-sizing: border-box; margin-bottom: 12px; padding: 4px; font-size: 11px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 8px; border: 1px solid #e5e5e5; border-radius: 4px; margin-bottom: 6px; cursor: pointer; }
+  li:hover { border-color: #999; }
+  #empty { color: #999; }
+  #status { color: #666; margin-top: 8px; min-height: 14px; }
+  #refresh { margin-bottom: 12px; padding: 4px 10px; font-size: 11px; cursor: pointer; }
+</style>
+</head>
+<body>
+  <h2>Design System Builder</h2>
+  <label for="api-base">API base URL</label>
+  <input id="api-base" placeholder="defaults to the production Worker" />
+  <button id="refresh" type="button">Refresh jobs</button>
+  <div id="list"><p id="empty">Loading jobs&hellip;</p></div>
+  <div id="status"></div>
+  <script>
+    const listEl = document.getElementById("list");
+    const statusEl = document.getElementById("status");
+    const apiBaseEl = document.getElementById("api-base");
+
+    apiBaseEl.addEventListener("change", () => {
+      parent.postMessage({ pluginMessage: { type: "set-api-base", apiBase: apiBaseEl.value } }, "*");
+    });
+
+    document.getElementById("refresh").addEventListener("click", () => {
+      listEl.innerHTML = '<p id="empty">Loading jobs&hellip;</p>';
+      parent.postMessage({ pluginMessage: { type: "refresh" } }, "*");
+    });
+
+    window.onmessage = (event) => {
+      const msg = event.data && event.data.pluginMessage;
+      if (!msg) return;
+      if (msg.type === "api-base") {
+        apiBaseEl.value = msg.apiBase;
+      } else if (msg.type === "jobs") {
+        statusEl.textContent = "";
+        renderJobs(msg.jobs);
+      } else if (msg.type === "error") {
+        statusEl.textContent = msg.message;
+      }
+    };
+
+    function renderJobs(jobs) {
+      if (!jobs || jobs.length === 0) {
+        listEl.innerHTML = '<p id="empty">No pending jobs.</p>';
+        return;
+      }
+      listEl.innerHTML = "";
+      const ul = document.createElement("ul");
+      for (const job of jobs) {
+        const li = document.createElement("li");
+        li.textContent = job.requestName + " — filed " + new Date(job.createdAt).toLocaleString();
+        li.onclick = () => {
+          statusEl.textContent = "Building " + job.requestName + "…";
+          parent.postMessage({ pluginMessage: { type: "select-job", jobId: job.id } }, "*");
+        };
+        ul.appendChild(li);
+      }
+      listEl.appendChild(ul);
+    }
+  </script>
+</body>
+</html>
