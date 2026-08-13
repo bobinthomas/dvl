@@ -9,6 +9,7 @@ import {
   type ComponentRequest,
   type ComponentRequestFields,
   type ComponentSpec,
+  type StandingBriefConfig,
 } from "@ds-platform/core";
 import {
   runGapAnalysis,
@@ -208,7 +209,7 @@ async function handleApprove(env: DevApiEnv, id: string): Promise<Response> {
   return json({ ok: true });
 }
 
-async function handleBrief(env: DevApiEnv, id: string): Promise<Response> {
+async function handleBrief(env: DevApiEnv, request: Request, id: string): Promise<Response> {
   const found = await requestOr404(env, id);
   if (found instanceof Response) return found;
   if (found.request.status !== "approved" && found.request.status !== "in-design") {
@@ -220,7 +221,8 @@ async function handleBrief(env: DevApiEnv, id: string): Promise<Response> {
       409
     );
   }
-  const brief = buildDesignBrief(found.request);
+  const { standingBrief } = await parseJsonBody<{ standingBrief?: StandingBriefConfig }>(request);
+  const brief = buildDesignBrief(found.request, standingBrief);
   // Already in-design (regenerating after an edit) stays in-design — this
   // route only ever moves a request forward on its first run, never back.
   const nextStatus = found.request.status === "approved" ? "in-design" : found.request.status;
@@ -621,7 +623,7 @@ export async function handleDevApi(env: DevApiEnv, request: Request, pathname: s
       return await handleGenerateRequestContent(env, request);
     if (parts.length === 1 && parts[0] === "requests") return await handleRequestNew(env, request);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "approve") return await handleApprove(env, parts[1]);
-    if (parts.length === 3 && parts[0] === "requests" && parts[2] === "brief") return await handleBrief(env, parts[1]);
+    if (parts.length === 3 && parts[0] === "requests" && parts[2] === "brief") return await handleBrief(env, request, parts[1]);
     if (parts.length === 4 && parts[0] === "requests" && parts[2] === "brief" && parts[3] === "save")
       return await handleSaveBrief(env, request, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "edit")

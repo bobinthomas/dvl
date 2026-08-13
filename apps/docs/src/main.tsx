@@ -5,6 +5,7 @@ import { SimulationProvider } from "./simulationContext.js";
 import { ProviderSettingsProvider } from "./providerContext.js";
 import { DevApiProvider } from "./devApiContext.js";
 import { StandingQuestionsProvider } from "./standingQuestionsContext.js";
+import { StandingBriefProvider } from "./standingBriefContext.js";
 import "./styles/base.css";
 
 const root = document.getElementById("root");
@@ -15,9 +16,11 @@ createRoot(root).render(
     <ProviderSettingsProvider>
       <SimulationProvider>
         <StandingQuestionsProvider>
-          <DevApiProvider>
-            <App />
-          </DevApiProvider>
+          <StandingBriefProvider>
+            <DevApiProvider>
+              <App />
+            </DevApiProvider>
+          </StandingBriefProvider>
         </StandingQuestionsProvider>
       </SimulationProvider>
     </ProviderSettingsProvider>

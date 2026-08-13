@@ -5,6 +5,7 @@ import { SendToFigma } from "./SendToFigma.js";
 import { EditRequestForm } from "./EditRequestForm.js";
 import { useSimulation } from "../simulationContext.js";
 import { useProviderSettings } from "../providerContext.js";
+import { useStandingBriefConfig } from "../standingBriefContext.js";
 import { safeConfirm } from "../safeConfirm.js";
 
 type Status = "idle" | "loading" | "error";
@@ -59,15 +60,16 @@ export function RequestActions({
 }) {
   const { simulate } = useSimulation();
   const { figmaConfig } = useProviderSettings();
+  const { config: standingBrief } = useStandingBriefConfig();
   const [status, setStatus] = React.useState<Status>("idle");
   const [errors, setErrors] = React.useState<string[]>([]);
   const [figmaFileKey, setFigmaFileKey] = React.useState(request.figmaFileKey ?? "");
   const [verifyReport, setVerifyReport] = React.useState<ActionResponse["report"] | null>(null);
 
-  async function runSimpleAction(url: string) {
+  async function runSimpleAction(url: string, body?: unknown) {
     setStatus("loading");
     setErrors([]);
-    const data = await postJson(url);
+    const data = await postJson(url, body);
     if (!data.ok) {
       setErrors(data.errors ?? ["unknown error"]);
       setStatus("error");
@@ -101,7 +103,7 @@ export function RequestActions({
           type="button"
           className="ask-widget__submit"
           disabled={status === "loading"}
-          onClick={() => runSimpleAction(`/api/dev/requests/${request.id}/brief`)}
+          onClick={() => runSimpleAction(`/api/dev/requests/${request.id}/brief`, { standingBrief })}
         >
           {status === "loading" ? "Generating…" : "Generate brief"}
         </button>
@@ -118,7 +120,7 @@ export function RequestActions({
           disabled={status === "loading"}
           onClick={() => {
             if (!safeConfirm("This will overwrite the current brief, including any manual edits. Continue?")) return;
-            runSimpleAction(`/api/dev/requests/${request.id}/brief`);
+            runSimpleAction(`/api/dev/requests/${request.id}/brief`, { standingBrief });
           }}
         >
           {status === "loading" ? "Generating…" : "Regenerate brief"}

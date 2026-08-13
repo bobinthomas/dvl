@@ -75,13 +75,38 @@ export function buildComponentRequest(fields: ComponentRequestFields): Component
   };
 }
 
+/** The fixed rules every generated brief states, unless a StandingBriefConfig overrides them. */
+export const DEFAULT_BRIEF_GUIDELINES: string[] = [
+  "Every color, spacing, radius, and font value must come from the shared token library — never a raw hex/px value. Token references look like `{color.action.primary.default.bg}`, `{spacing.md}`, `{radius.md}`.",
+  "Name each anatomy part clearly (e.g. root, label, icon) and mark which parts are optional.",
+  "Design every interaction state this component needs — default, hover, active, focus, disabled, loading — only the ones that actually apply.",
+  'Document keyboard behavior and ARIA requirements per state. A component can\'t ship as "stable" without at least one accessibility requirement recorded.',
+];
+
+/**
+ * A team-wide baseline for the brief template, set once in Settings rather
+ * than hand-edited into every generated brief — the same "standing"
+ * posture as intake-interview.ts's standing questions. `guidelines`
+ * replaces DEFAULT_BRIEF_GUIDELINES wholesale when non-empty; the cited
+ * reference example is resolved as
+ * referenceExamplesByCategory[request.category] ?? defaultReferenceExample
+ * ?? "button", so a "feedback" request can cite a feedback component
+ * instead of Button without hand-editing that line every time.
+ */
+export interface StandingBriefConfig {
+  guidelines?: string[];
+  referenceExamplesByCategory?: Record<string, string>;
+  defaultReferenceExample?: string;
+}
+
 /**
  * The design brief handed to whoever builds this in Figma — a mechanical
  * template, not a model call: it only restates what's already on the
- * request plus the platform's fixed token/anatomy/accessibility
- * conventions. Shared by `ds request brief` and the docs app's brief route.
+ * request plus the platform's token/anatomy/accessibility conventions
+ * (fixed, or overridden by `standing`, see StandingBriefConfig). Shared by
+ * `ds request brief` and the docs app's brief route.
  */
-export function buildDesignBrief(request: ComponentRequest): string {
+export function buildDesignBrief(request: ComponentRequest, standing?: StandingBriefConfig): string {
   const variants =
     request.expectedVariants.length > 0
       ? request.expectedVariants.map((v) => `- ${v}`).join("\n")
@@ -92,6 +117,14 @@ export function buildDesignBrief(request: ComponentRequest): string {
       ? `- Build it as a Figma **Component Set** — not a Frame, Group, or mockup. Create each variant as its own Component (select it, Ctrl/Cmd+Alt+K), then select all of them and Combine as Variants.
 - Each variant's own component name must contain that variant's text somewhere in it — e.g. a "State=With Timezone" variant property matches "with-timezone" fine, spacing vs. hyphens doesn't matter.`
       : `- Build it as a single Figma **Component** — not a Frame, Group, or mockup. Convert it with Create Component (select it, Ctrl/Cmd+Alt+K).`;
+
+  const guidelines = standing?.guidelines?.length ? standing.guidelines : DEFAULT_BRIEF_GUIDELINES;
+  const referenceExample =
+    standing?.referenceExamplesByCategory?.[request.category] || standing?.defaultReferenceExample || "button";
+  const guidelinesText = [
+    ...guidelines.map((g) => `- ${g}`),
+    `- See \`components/${referenceExample}/spec.json\` in this repo for a fully worked example of the token, anatomy, and accessibility conventions this component should follow.`,
+  ].join("\n");
 
   return `# Design Brief: ${request.name}
 
@@ -108,11 +141,7 @@ ${variants}
 ${request.notes ?? "(none)"}
 
 ## Design system guidelines
-- Every color, spacing, radius, and font value must come from the shared token library — never a raw hex/px value. Token references look like \`{color.action.primary.default.bg}\`, \`{spacing.md}\`, \`{radius.md}\`.
-- Name each anatomy part clearly (e.g. root, label, icon) and mark which parts are optional.
-- Design every interaction state this component needs — default, hover, active, focus, disabled, loading — only the ones that actually apply.
-- Document keyboard behavior and ARIA requirements per state. A component can't ship as "stable" without at least one accessibility requirement recorded.
-- See \`components/button/spec.json\` in this repo for a fully worked example of the token, anatomy, and accessibility conventions this component should follow.
+${guidelinesText}
 
 ## Figma structure (what Verify actually checks)
 Verify reads the file's real structure via the Figma REST API — a spec sheet or mockup showing every variant won't reconcile, no matter how accurate it looks, unless the file is actually built this way:

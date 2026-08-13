@@ -1,6 +1,8 @@
 import * as React from "react";
+import { CategorySchema } from "@ds-platform/core/schema";
 import { PROVIDER_INFO, useProviderSettings, type DirectProvider } from "../providerContext.js";
 import { useStandingQuestions } from "../standingQuestionsContext.js";
+import { useStandingBriefConfig } from "../standingBriefContext.js";
 
 interface EnvStatusResponse {
   ok: boolean;
@@ -193,6 +195,7 @@ export function SettingsPage() {
       </section>
 
       <StandingQuestionsSection />
+      <StandingBriefSection />
     </div>
   );
 }
@@ -275,6 +278,73 @@ function StandingQuestionsSection() {
           Add question
         </button>
       </form>
+    </section>
+  );
+}
+
+/**
+ * A team-wide baseline for the generated design brief's boilerplate — set
+ * once here instead of hand-edited into every brief (see
+ * standingBriefContext.tsx and request-schema.ts's buildDesignBrief).
+ * Blank fields fall back to buildDesignBrief's own defaults, so leaving
+ * everything empty reproduces today's behavior exactly.
+ */
+function StandingBriefSection() {
+  const { config, setGuidelines, setDefaultReferenceExample, setCategoryReferenceExample } = useStandingBriefConfig();
+  const [guidelinesText, setGuidelinesText] = React.useState((config.guidelines ?? []).join("\n"));
+
+  function commitGuidelines() {
+    setGuidelines(
+      guidelinesText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+    );
+  }
+
+  return (
+    <section className="doc-section">
+      <h2>Design brief template</h2>
+      <p className="settings-summary">
+        Customize the boilerplate every generated design brief includes — leave a field blank to use the built-in
+        default.
+      </p>
+
+      <label className="form-field">
+        Design system guidelines (one per line)
+        <textarea
+          value={guidelinesText}
+          onChange={(e) => setGuidelinesText(e.target.value)}
+          onBlur={commitGuidelines}
+          rows={5}
+          placeholder="(default: token usage, anatomy naming, interaction states, accessibility requirements)"
+        />
+      </label>
+
+      <label className="form-field">
+        Default reference example (component id)
+        <input
+          type="text"
+          value={config.defaultReferenceExample ?? ""}
+          onChange={(e) => setDefaultReferenceExample(e.target.value)}
+          placeholder="button"
+        />
+      </label>
+
+      <div className="form-field">
+        Reference example by category (optional — overrides the default above for that category)
+        {CategorySchema.options.map((category) => (
+          <label key={category} className="form-field">
+            {category}
+            <input
+              type="text"
+              value={config.referenceExamplesByCategory?.[category] ?? ""}
+              onChange={(e) => setCategoryReferenceExample(category, e.target.value)}
+              placeholder={config.defaultReferenceExample || "button"}
+            />
+          </label>
+        ))}
+      </div>
     </section>
   );
 }

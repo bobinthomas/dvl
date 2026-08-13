@@ -21,6 +21,7 @@ import {
   type ComponentRequest,
   type ComponentRequestFields,
   type ComponentSpec,
+  type StandingBriefConfig,
 } from "@ds-platform/core";
 import { validateSpecFile } from "@ds-platform/validator";
 import {
@@ -296,7 +297,7 @@ function handleApprove(ctx: DevApiContext, res: ServerResponse, id: string): voi
 }
 
 /** `ds request brief <id>`, over HTTP. */
-function handleBrief(ctx: DevApiContext, res: ServerResponse, id: string): void {
+async function handleBrief(ctx: DevApiContext, req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
   const request = readRequestOr404(ctx, res, id);
   if (!request) return;
   if (request.status !== "approved" && request.status !== "in-design") {
@@ -306,7 +307,8 @@ function handleBrief(ctx: DevApiContext, res: ServerResponse, id: string): void 
     });
     return;
   }
-  const brief = buildDesignBrief(request);
+  const { standingBrief } = await parseJsonBody<{ standingBrief?: StandingBriefConfig }>(req);
+  const brief = buildDesignBrief(request, standingBrief);
   writeFileSync(join(ctx.requestsDir, id, "BRIEF.md"), brief, "utf-8");
   // Already in-design (regenerating after an edit) stays in-design — this
   // route only ever moves a request forward on its first run, never back.
@@ -811,7 +813,7 @@ export async function handleDevApi(ctx: DevApiContext, req: IncomingMessage, res
       return await handleGenerateRequestContent(ctx, req, res);
     if (parts.length === 1 && parts[0] === "requests") return await handleRequestNew(ctx, req, res);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "approve") return handleApprove(ctx, res, parts[1]);
-    if (parts.length === 3 && parts[0] === "requests" && parts[2] === "brief") return handleBrief(ctx, res, parts[1]);
+    if (parts.length === 3 && parts[0] === "requests" && parts[2] === "brief") return await handleBrief(ctx, req, res, parts[1]);
     if (parts.length === 4 && parts[0] === "requests" && parts[2] === "brief" && parts[3] === "save")
       return await handleSaveBrief(ctx, req, res, parts[1]);
     if (parts.length === 3 && parts[0] === "requests" && parts[2] === "edit")
